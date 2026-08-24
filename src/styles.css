@@ -294,7 +294,8 @@ a {
   padding: 0 8px;
   border: 0;
   border-radius: 0;
-  font-size: 0.94rem;
+  /* iOS Safari zooms focused controls whose text is smaller than 16px. */
+  font-size: 16px;
 }
 
 .search-form input:focus,
@@ -890,17 +891,35 @@ a {
 .review-form input[type="date"] {
   display: block;
   width: 100%;
+  height: 46px;
   min-width: 0;
+  min-height: 46px;
   max-width: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
+  padding-block: 0;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-appearance: none;
   appearance: none;
 }
 
 .review-form input[type="date"]::-webkit-date-and-time-value {
+  display: flex;
+  width: 100%;
+  height: 100%;
   min-width: 0;
+  align-items: center;
+  margin: 0;
+  padding: 0;
   text-align: left;
+}
+
+.review-form input[type="date"]::-webkit-datetime-edit {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  padding: 0;
 }
 
 .rating-field,
