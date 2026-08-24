@@ -1,19 +1,14 @@
-export interface NaverLocalSearchItem {
+export interface RestaurantSearchResult {
   title: string
-  link: string
-  category: string
-  description: string
-  telephone: string
-  address: string
-  roadAddress: string
-  mapx: string
-  mapy: string
+  category: string | null
+  address: string | null
+  roadAddress: string | null
+  latitude: number | null
+  longitude: number | null
+  link: string | null
 }
 
-export interface NaverLocalSearchResponse {
-  lastBuildDate: string
+export interface RestaurantSearchResponse {
   total: number
-  start: number
-  display: number
-  items: NaverLocalSearchItem[]
+  items: RestaurantSearchResult[]
 }

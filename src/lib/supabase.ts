@@ -10,9 +10,11 @@ export const isSupabaseConfigured = Boolean(
   supabaseUrl && supabasePublishableKey,
 )
 
-export function getSupabaseClient(): SupabaseClient | null {
+export function getSupabaseClient(): SupabaseClient {
   if (!isSupabaseConfigured || !supabaseUrl || !supabasePublishableKey) {
-    return null
+    throw new Error(
+      'Supabase 설정이 없습니다. .env.local의 VITE_SUPABASE_URL과 VITE_SUPABASE_PUBLISHABLE_KEY를 확인하세요.',
+    )
   }
 
   if (!client) {

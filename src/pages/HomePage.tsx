@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { NaverMap } from '../components/NaverMap'
 import { RestaurantSearch } from '../components/RestaurantSearch'
 import { isSupabaseConfigured } from '../lib/supabase'
+import type { RestaurantSearchResult } from '../types/naverSearch'
 
 export function HomePage() {
+  const [selectedRestaurant, setSelectedRestaurant] =
+    useState<RestaurantSearchResult | null>(null)
   const isMapConfigured = Boolean(
     import.meta.env.VITE_NAVER_MAP_CLIENT_ID?.trim(),
   )
@@ -26,7 +30,7 @@ export function HomePage() {
       </header>
 
       <div className="workspace">
-        <RestaurantSearch />
+        <RestaurantSearch onSelect={setSelectedRestaurant} />
         <section className="map-panel" aria-labelledby="map-title">
           <div className="map-heading">
             <div>
@@ -35,7 +39,7 @@ export function HomePage() {
             </div>
             <span className="milestone">Milestone 0 · foundation</span>
           </div>
-          <NaverMap />
+          <NaverMap selectedRestaurant={selectedRestaurant} />
         </section>
       </div>
     </main>

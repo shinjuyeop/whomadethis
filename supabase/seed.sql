@@ -1,0 +1,3 @@
+-- Intentionally empty.
+-- Add synthetic development-only data here when Auth-aware fixtures exist.
+-- Never add real users, credentials, or personal visit data.

@@ -183,12 +183,27 @@ main {
 }
 
 .search-results li {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
   border-radius: 12px;
   background: #f5f3ec;
   font-size: 0.82rem;
+}
+
+.search-results li button {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  padding: 12px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.search-results li button:hover,
+.search-results li button:focus-visible {
+  outline: 2px solid #2d7051;
+  outline-offset: 1px;
 }
 
 .search-results li span,

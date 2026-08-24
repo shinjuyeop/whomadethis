@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadNaverMaps } from '../lib/naverMaps'
+import type { RestaurantSearchResult } from '../types/naverSearch'
 
 const SEOUL_CITY_HALL = {
   latitude: 37.5666103,
@@ -8,8 +9,13 @@ const SEOUL_CITY_HALL = {
 
 type MapState = 'loading' | 'ready' | 'error' | 'missing-config'
 
-export function NaverMap() {
+interface NaverMapProps {
+  selectedRestaurant: RestaurantSearchResult | null
+}
+
+export function NaverMap({ selectedRestaurant }: NaverMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<NaverMapInstance | null>(null)
   const clientId = import.meta.env.VITE_NAVER_MAP_CLIENT_ID?.trim()
   const [state, setState] = useState<MapState>(
     clientId ? 'loading' : 'missing-config',
@@ -22,15 +28,13 @@ export function NaverMap() {
     }
 
     let cancelled = false
-    let map: NaverMapInstance | null = null
-
     loadNaverMaps(clientId)
       .then(() => {
         if (cancelled || !containerRef.current || !window.naver?.maps) {
           return
         }
 
-        map = new window.naver.maps.Map(containerRef.current, {
+        mapRef.current = new window.naver.maps.Map(containerRef.current, {
           center: new window.naver.maps.LatLng(
             SEOUL_CITY_HALL.latitude,
             SEOUL_CITY_HALL.longitude,
@@ -55,9 +59,31 @@ export function NaverMap() {
 
     return () => {
       cancelled = true
-      map?.destroy?.()
+      mapRef.current?.destroy?.()
+      mapRef.current = null
     }
   }, [clientId])
+
+  useEffect(() => {
+    if (
+      state !== 'ready' ||
+      !mapRef.current ||
+      !window.naver?.maps ||
+      selectedRestaurant?.latitude === null ||
+      selectedRestaurant?.longitude === null ||
+      !selectedRestaurant
+    ) {
+      return
+    }
+
+    mapRef.current.setCenter(
+      new window.naver.maps.LatLng(
+        selectedRestaurant.latitude,
+        selectedRestaurant.longitude,
+      ),
+    )
+    mapRef.current.setZoom(16)
+  }, [selectedRestaurant, state])
 
   if (state === 'missing-config') {
     return (

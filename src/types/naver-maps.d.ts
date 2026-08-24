@@ -11,6 +11,8 @@ interface NaverLatLng {
 
 interface NaverMapInstance {
   destroy?: () => void
+  setCenter(center: NaverLatLng): void
+  setZoom(zoom: number): void
 }
 
 interface NaverMapsNamespace {

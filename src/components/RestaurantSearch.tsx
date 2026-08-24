@@ -1,13 +1,16 @@
 import { type FormEvent, useState } from 'react'
-import type { NaverLocalSearchResponse } from '../types/naverSearch'
+import type {
+  RestaurantSearchResponse,
+  RestaurantSearchResult,
+} from '../types/naverSearch'
 
-function removeHtmlTags(value: string) {
-  return value.replace(/<[^>]*>/g, '')
+interface RestaurantSearchProps {
+  onSelect: (restaurant: RestaurantSearchResult) => void
 }
 
-export function RestaurantSearch() {
+export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
   const [query, setQuery] = useState('')
-  const [result, setResult] = useState<NaverLocalSearchResponse | null>(null)
+  const [result, setResult] = useState<RestaurantSearchResponse | null>(null)
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -35,7 +38,7 @@ export function RestaurantSearch() {
         throw new Error(errorBody.error?.message ?? '검색 요청에 실패했습니다.')
       }
 
-      setResult(body as NaverLocalSearchResponse)
+      setResult(body as RestaurantSearchResponse)
     } catch (error) {
       setResult(null)
       setMessage(
@@ -62,26 +65,43 @@ export function RestaurantSearch() {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="예: 성수동 파스타"
           autoComplete="off"
+          maxLength={100}
         />
         <button type="submit" disabled={isLoading}>
           {isLoading ? '검색 중…' : '검색'}
         </button>
       </form>
 
-      {message && <p className="feedback" role="alert">{message}</p>}
+      {message && (
+        <p className="feedback" role="alert">
+          {message}
+        </p>
+      )}
 
       {result && (
         <div className="search-results" aria-live="polite">
-          <p>{result.items.length}개의 결과를 찾았습니다.</p>
-          <ul>
-            {result.items.map((item) => (
-              <li key={`${item.mapx}-${item.mapy}-${item.title}`}>
-                <strong>{removeHtmlTags(item.title)}</strong>
-                <span>{item.roadAddress || item.address}</span>
-                <small>{item.category}</small>
-              </li>
-            ))}
-          </ul>
+          {result.items.length === 0 ? (
+            <p>검색 결과가 없습니다. 지역명과 음식점 이름을 함께 입력해 보세요.</p>
+          ) : (
+            <>
+              <p>{result.items.length}개의 결과를 찾았습니다.</p>
+              <ul>
+                {result.items.map((item, index) => (
+                  <li
+                    key={`${item.longitude}-${item.latitude}-${item.title}-${index}`}
+                  >
+                    <button type="button" onClick={() => onSelect(item)}>
+                      <strong>{item.title}</strong>
+                      <span>
+                        {item.roadAddress || item.address || '주소 정보 없음'}
+                      </span>
+                      <small>{item.category || '카테고리 정보 없음'}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
     </section>
