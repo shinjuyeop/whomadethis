@@ -5,7 +5,7 @@ import type {
 } from '../types/naverSearch'
 
 interface RestaurantSearchProps {
-  onSelect: (restaurant: RestaurantSearchResult) => void
+  onSelect: (restaurant: RestaurantSearchResult) => Promise<void>
 }
 
 const SEARCH_UNAVAILABLE_MESSAGE =
@@ -33,7 +33,9 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<RestaurantSearchResponse | null>(null)
   const [message, setMessage] = useState('')
+  const [messageKind, setMessageKind] = useState<'error' | 'success'>('error')
   const [isLoading, setIsLoading] = useState(false)
+  const [pendingResultKey, setPendingResultKey] = useState<string | null>(null)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -41,6 +43,7 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
 
     if (!trimmedQuery) {
       setMessage('검색어를 입력해 주세요.')
+      setMessageKind('error')
       setResult(null)
       return
     }
@@ -69,6 +72,7 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
       setResult(body as RestaurantSearchResponse)
     } catch (error) {
       setResult(null)
+      setMessageKind('error')
       setMessage(
         error instanceof SearchRequestError
           ? error.message
@@ -79,12 +83,37 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
     }
   }
 
+  async function handleSelect(item: RestaurantSearchResult, key: string) {
+    if (
+      item.latitude === null ||
+      item.longitude === null ||
+      (!item.roadAddress && !item.address)
+    ) {
+      setMessage('이 장소는 위치 정보가 부족해 지도에 표시할 수 없습니다.')
+      setMessageKind('error')
+      return
+    }
+
+    setPendingResultKey(key)
+    setMessage('')
+
+    try {
+      await onSelect(item)
+      setMessage(`${item.title}을(를) 지도에 표시했어요.`)
+      setMessageKind('success')
+    } catch {
+      setMessage('장소를 지도에 표시하지 못했습니다. 다시 시도해 주세요.')
+      setMessageKind('error')
+    } finally {
+      setPendingResultKey(null)
+    }
+  }
+
   return (
     <section className="search-panel" aria-labelledby="search-title">
-      <div>
-        <p className="eyebrow">PLACE SEARCH</p>
-        <h2 id="search-title">어디에서 맛있는 걸 먹었나요?</h2>
-      </div>
+      <h2 id="search-title" className="sr-only">
+        음식점 검색
+      </h2>
       <form className="search-form" onSubmit={handleSubmit}>
         <label className="sr-only" htmlFor="restaurant-query">
           음식점 또는 지역 검색
@@ -93,42 +122,57 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
           id="restaurant-query"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="예: 성수동 파스타"
+          placeholder="음식점 이름이나 지역 검색"
           autoComplete="off"
           maxLength={100}
         />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? '검색 중…' : '검색'}
+        <button type="submit" disabled={isLoading} aria-label="음식점 검색">
+          {isLoading ? '…' : '검색'}
         </button>
       </form>
 
       {message && (
-        <p className="feedback" role="alert">
+        <p
+          className={`feedback feedback--${messageKind}`}
+          role={messageKind === 'error' ? 'alert' : 'status'}
+        >
           {message}
         </p>
       )}
 
       {result && (
         <div className="search-results" aria-live="polite">
-          {result.items.length === 0 ? (
+          {result.items.length === 0 && !isLoading ? (
             <p>검색 결과가 없습니다. 지역명과 음식점 이름을 함께 입력해 보세요.</p>
           ) : (
             <>
               <p>{result.items.length}개의 결과를 찾았습니다.</p>
               <ul>
-                {result.items.map((item, index) => (
-                  <li
-                    key={`${item.longitude}-${item.latitude}-${item.title}-${index}`}
-                  >
-                    <button type="button" onClick={() => onSelect(item)}>
-                      <strong>{item.title}</strong>
-                      <span>
-                        {item.roadAddress || item.address || '주소 정보 없음'}
-                      </span>
-                      <small>{item.category || '카테고리 정보 없음'}</small>
-                    </button>
-                  </li>
-                ))}
+                {result.items.map((item, index) => {
+                  const key = `${item.longitude}-${item.latitude}-${item.title}-${index}`
+                  const isPending = pendingResultKey === key
+
+                  return (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        disabled={pendingResultKey !== null}
+                        onClick={() => void handleSelect(item, key)}
+                      >
+                        <span className="search-result-copy">
+                          <strong>{item.title}</strong>
+                          <small>{item.category || '음식점'}</small>
+                          <span>
+                            {item.roadAddress || item.address || '주소 정보 없음'}
+                          </span>
+                        </span>
+                        <span className="search-result-action">
+                          {isPending ? '표시 중…' : '선택'}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             </>
           )}

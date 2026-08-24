@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useRestaurantMarkers } from '../hooks/useRestaurantMarkers'
 import { loadNaverMaps } from '../lib/naverMaps'
-import type { RestaurantSearchResult } from '../types/naverSearch'
+import type { Restaurant } from '../types/database'
 
 const SEOUL_CITY_HALL = {
   latitude: 37.5666103,
@@ -10,12 +11,19 @@ const SEOUL_CITY_HALL = {
 type MapState = 'loading' | 'ready' | 'error' | 'missing-config'
 
 interface NaverMapProps {
-  selectedRestaurant: RestaurantSearchResult | null
+  restaurants: Restaurant[]
+  selectedRestaurant: Restaurant | null
+  onSelectRestaurant: (restaurant: Restaurant) => void
 }
 
-export function NaverMap({ selectedRestaurant }: NaverMapProps) {
+export function NaverMap({
+  restaurants,
+  selectedRestaurant,
+  onSelectRestaurant,
+}: NaverMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<NaverMapInstance | null>(null)
+  const [map, setMap] = useState<NaverMapInstance | null>(null)
   const clientId = import.meta.env.VITE_NAVER_MAP_CLIENT_ID?.trim()
   const [state, setState] = useState<MapState>(
     clientId ? 'loading' : 'missing-config',
@@ -34,7 +42,7 @@ export function NaverMap({ selectedRestaurant }: NaverMapProps) {
           return
         }
 
-        mapRef.current = new window.naver.maps.Map(containerRef.current, {
+        const nextMap = new window.naver.maps.Map(containerRef.current, {
           center: new window.naver.maps.LatLng(
             SEOUL_CITY_HALL.latitude,
             SEOUL_CITY_HALL.longitude,
@@ -42,6 +50,8 @@ export function NaverMap({ selectedRestaurant }: NaverMapProps) {
           zoom: 13,
           zoomControl: true,
         })
+        mapRef.current = nextMap
+        setMap(nextMap)
         setState('ready')
       })
       .catch((error: unknown) => {
@@ -61,16 +71,17 @@ export function NaverMap({ selectedRestaurant }: NaverMapProps) {
       cancelled = true
       mapRef.current?.destroy?.()
       mapRef.current = null
+      setMap(null)
     }
   }, [clientId])
+
+  useRestaurantMarkers(map, restaurants, onSelectRestaurant)
 
   useEffect(() => {
     if (
       state !== 'ready' ||
       !mapRef.current ||
       !window.naver?.maps ||
-      selectedRestaurant?.latitude === null ||
-      selectedRestaurant?.longitude === null ||
       !selectedRestaurant
     ) {
       return
@@ -84,6 +95,21 @@ export function NaverMap({ selectedRestaurant }: NaverMapProps) {
     )
     mapRef.current.setZoom(16)
   }, [selectedRestaurant, state])
+
+  useEffect(() => {
+    if (state !== 'ready' || !map || !containerRef.current) {
+      return
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (window.naver?.maps) {
+        window.naver.maps.Event.trigger(map, 'resize')
+      }
+    })
+    observer.observe(containerRef.current)
+
+    return () => observer.disconnect()
+  }, [map, state])
 
   if (state === 'missing-config') {
     return (

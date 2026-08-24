@@ -1,6 +1,6 @@
 # whomadethis
 
-친구들이 함께 방문한 음식점을 전국 지도에 기록하고 사진, 별점, 리뷰를 누적해 공유하는 웹앱입니다. 현재 milestone은 완성 서비스가 아니라 음식점 저장과 리뷰 기능을 안전하게 이어서 만들 수 있는 개발 기반을 제공합니다.
+친구들이 함께 방문한 음식점을 전국 지도에 기록하고 사진, 별점, 리뷰를 누적해 공유하는 웹앱입니다. 이메일로 로그인한 사용자는 NAVER에서 음식점을 찾아 지도에 추가하고, 친구들이 함께 저장한 장소를 marker로 확인할 수 있습니다.
 
 ## 목표와 기술 스택
 
@@ -17,9 +17,10 @@ api/
   naver-search.ts          # Vercel Function entrypoint
   naver-search-core.ts     # validation, upstream call, normalization
 src/
-  components/              # map and restaurant search UI
-  lib/                     # NAVER Maps loader, Supabase client
-  pages/                   # router pages
+  components/              # auth shell, map, search, restaurant preview
+  hooks/                   # auth, restaurant loading, marker lifecycle
+  lib/                     # NAVER Maps, Supabase, auth/profile/data calls
+  pages/                   # login, signup, map, MY
   types/                   # app-facing API and SDK types
 supabase/
   config.toml              # local Supabase configuration
@@ -28,6 +29,17 @@ supabase/
 ```
 
 브라우저는 NAVER API HUB를 직접 호출하지 않습니다. `/api/naver-search`가 서버 전용 credential을 사용해 upstream을 호출하고 HTML 제거, 응답 검증, WGS84 좌표 정규화를 수행한 뒤 최소 application type만 반환합니다. `mapx`는 `longitude`, `mapy`는 `latitude`로 변환합니다.
+
+## 사용자 흐름
+
+```text
+회원가입/로그인 → nickname profile 확인 → 지도
+              → NAVER 음식점 검색 → 선택 → 지도 marker
+```
+
+Supabase 프로젝트에서 이메일 확인이 활성화된 경우 회원가입 직후 인증 이메일 안내를 표시합니다. 확인을 우회하거나 관리자 승인을 요구하지 않습니다. 인증된 사용자에게 profile이 없을 때만 nickname 설정 화면이 나타나며, MY에서 nickname 변경과 로그아웃을 할 수 있습니다. Session 확인이 끝나기 전에는 지도 route를 렌더링하지 않습니다.
+
+`vercel.json`은 `/login`, `/signup`, `/my` 직접 접근을 SPA entry로 rewrite합니다. `/api/naver-search` function route는 rewrite 대상에 포함하지 않습니다.
 
 ## 로컬 설정
 
@@ -70,10 +82,13 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - SDK를 한 번만 비동기 로드하는 helper와 서울권 초기 viewport
 - Client ID 누락, load timeout/failure, `window.naver` 초기화 실패 UI
 - idle/loading/success/empty/error를 처리하는 음식점 검색 UI
-- 결과 클릭 시 유효한 WGS84 좌표로 지도 이동
+- 결과 선택 시 유효한 WGS84 좌표의 restaurant를 선택하고 지도 이동
 - `GET /api/naver-search?q=<query>`의 method, 공백, 100자 제한 검증
 - 8초 upstream timeout, NAVER 4xx/5xx 및 비정상 JSON/shape의 안전한 오류 처리
 - raw upstream 오류와 credential을 반환하지 않는 normalized response
+- Supabase `restaurants` 전체 조회와 NAVER Map marker 표시
+- marker click/tap으로 restaurant preview 선택
+- `ResizeObserver` 기반 map resize 처리
 
 공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)
 
@@ -91,6 +106,8 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 
 Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 함께 지워지지 않게 합니다. Review 삭제 시에만 photo metadata가 cascade됩니다. NAVER Local Search에는 안정적인 place ID 필드가 없으므로 존재하지 않는 ID를 만들지 않고, source + 공백/대소문자를 정규화한 음식점명과 도로명(없으면 지번) 주소 조합으로 단순 중복을 막습니다. fuzzy matching은 하지 않습니다.
 
+검색 결과 선택은 `find_or_create_restaurant` security-invoker RPC를 사용합니다. 함수는 기존 RLS 권한으로 실행되며 normalized `source_key`를 먼저 찾고, 없을 때만 insert합니다. `(source, source_key)` unique constraint와 `ON CONFLICT`를 함께 사용하므로 동시에 같은 장소를 선택해도 하나의 restaurant를 재사용합니다. Service role은 사용하지 않습니다.
+
 ### RLS
 
 네 테이블 모두 RLS를 명시적으로 활성화하고 anonymous table 권한을 회수합니다.
@@ -101,7 +118,15 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 - Review는 `user_id = auth.uid()`인 작성자만 생성·수정·삭제합니다.
 - Photo metadata는 연결된 review 작성자만 생성·삭제합니다.
 
-현재 policy는 “인증된 모든 사용자” 범위입니다. 다음 단계에서 `members`, `groups`, `invitations`를 도입해 친구 멤버만 접근하도록 좁혀야 합니다.
+현재 MVP policy는 별도 승인 없이 “인증된 모든 사용자”가 서비스를 사용하는 범위입니다. 관리자 승인, allowlist, invitation workflow는 사용하지 않습니다.
+
+## Responsive application shell
+
+- Mobile `< 768px`: 전체 지도, 상단 floating search, 선택 restaurant bottom sheet, 하단 `지도/MY` navigation
+- Tablet/Desktop `>= 768px`: 350px sidebar와 나머지 지도 영역
+- Wide desktop `>= 1200px`: 390px sidebar와 확장된 지도 영역
+
+동일한 search/selection/preview data를 화면 크기에 따라 배치만 바꾸며 모바일과 desktop용 앱을 따로 만들지 않습니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한됩니다.
 
 ## SQL migration workflow
 
@@ -133,14 +158,11 @@ Bucket과 Storage RLS policy는 upload 기능 milestone에서 migration으로 �
 
 ## 현재 범위와 다음 milestone
 
-현재 지도 표시, 지역 검색과 지도 이동, Supabase client, CLI 설정, 초기 schema/RLS migration까지 구현되어 있습니다. 아직 Supabase Auth UI, 음식점 DB 저장/marker, restaurant detail, review CRUD, 사진 resize/upload, 친구 membership, Vercel project/deployment는 구현하지 않았습니다.
+현재 이메일 Auth/session, nickname profile, NAVER restaurant 선택과 중복 방지 저장, DB marker, responsive map shell, MY/logout까지 구현되어 있습니다. 다음 milestone 방향은 다음과 같습니다.
 
-권장 순서:
-
-1. NAVER 검색 결과 선택 → `restaurants` insert
-2. DB restaurant marker와 detail
-3. Review CRUD
-4. Private photo upload
-5. Supabase Auth
-6. Friend/member access
-7. Vercel project 생성과 production deploy
+1. Restaurant detail
+2. Review CRUD
+3. Average rating과 review count
+4. Private photo resize/upload
+5. Recent visit feed
+6. MY 방문 통계

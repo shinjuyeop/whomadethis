@@ -15,9 +15,35 @@ interface NaverMapInstance {
   setZoom(zoom: number): void
 }
 
+interface NaverMarkerOptions {
+  map: NaverMapInstance
+  position: NaverLatLng
+  title?: string
+}
+
+interface NaverMarkerInstance {
+  setMap(map: NaverMapInstance | null): void
+}
+
+interface NaverMapsEventListener {
+  readonly eventName?: string
+}
+
+interface NaverMapsEventNamespace {
+  addListener(
+    target: NaverMarkerInstance,
+    eventName: string,
+    listener: () => void,
+  ): NaverMapsEventListener
+  removeListener(listener: NaverMapsEventListener): void
+  trigger(target: NaverMapInstance, eventName: string): void
+}
+
 interface NaverMapsNamespace {
   Map: new (element: HTMLElement, options: NaverMapOptions) => NaverMapInstance
+  Marker: new (options: NaverMarkerOptions) => NaverMarkerInstance
   LatLng: new (latitude: number, longitude: number) => NaverLatLng
+  Event: NaverMapsEventNamespace
 }
 
 interface Window {

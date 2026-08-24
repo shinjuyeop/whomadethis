@@ -1,45 +1,69 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { NaverMap } from '../components/NaverMap'
+import { RestaurantPreview } from '../components/RestaurantPreview'
 import { RestaurantSearch } from '../components/RestaurantSearch'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { useRestaurants } from '../hooks/useRestaurants'
+import type { Restaurant } from '../types/database'
 import type { RestaurantSearchResult } from '../types/naverSearch'
 
 export function HomePage() {
   const [selectedRestaurant, setSelectedRestaurant] =
-    useState<RestaurantSearchResult | null>(null)
-  const isMapConfigured = Boolean(
-    import.meta.env.VITE_NAVER_MAP_CLIENT_ID?.trim(),
-  )
+    useState<Restaurant | null>(null)
+  const {
+    restaurants,
+    status,
+    errorMessage,
+    refresh,
+    selectSearchResult,
+  } = useRestaurants()
+
+  const handleMarkerSelect = useCallback((restaurant: Restaurant) => {
+    setSelectedRestaurant(restaurant)
+  }, [])
+
+  async function handleSearchSelect(result: RestaurantSearchResult) {
+    const restaurant = await selectSearchResult(result)
+    setSelectedRestaurant(restaurant)
+  }
 
   return (
-    <main>
-      <header className="hero">
-        <div>
-          <p className="eyebrow">SHARED FOOD MAP</p>
-          <h1>whomadethis</h1>
-          <p>친구들과 함께 다녀온 맛있는 장소를 한 지도에 기록하세요.</p>
-        </div>
-        <div className="status-card" aria-label="개발 환경 상태">
-          <span>초기 개발 환경</span>
-          <ul>
-            <li data-ready={isMapConfigured}>NAVER Maps</li>
-            <li data-ready={isSupabaseConfigured}>Supabase</li>
-            <li data-ready="true">Search proxy</li>
-          </ul>
-        </div>
-      </header>
+    <main className="map-page">
+      <div className="map-layout">
+        <aside className="map-sidebar" aria-label="음식점 검색과 선택 정보">
+          <RestaurantSearch onSelect={handleSearchSelect} />
 
-      <div className="workspace">
-        <RestaurantSearch onSelect={setSelectedRestaurant} />
-        <section className="map-panel" aria-labelledby="map-title">
-          <div className="map-heading">
-            <div>
-              <p className="eyebrow">OUR MAP</p>
-              <h2 id="map-title">친구들의 맛집 지도</h2>
-            </div>
-            <span className="milestone">Milestone 0 · foundation</span>
+          <div className="restaurant-load-status" aria-live="polite">
+            {status === 'loading' && <p>저장된 장소를 불러오는 중…</p>}
+            {status === 'error' && (
+              <div className="inline-error" role="alert">
+                <p>{errorMessage}</p>
+                <button type="button" onClick={() => void refresh()}>
+                  다시 시도
+                </button>
+              </div>
+            )}
+            {status === 'success' && restaurants.length === 0 && (
+              <p>첫 장소를 검색해 지도에 표시해 보세요.</p>
+            )}
+            {status === 'success' && restaurants.length > 0 && (
+              <p>함께 저장한 장소 {restaurants.length}곳</p>
+            )}
           </div>
-          <NaverMap selectedRestaurant={selectedRestaurant} />
+
+          {selectedRestaurant && (
+            <RestaurantPreview
+              restaurant={selectedRestaurant}
+              onClose={() => setSelectedRestaurant(null)}
+            />
+          )}
+        </aside>
+
+        <section className="map-canvas" aria-label="친구들의 맛집 지도">
+          <NaverMap
+            restaurants={restaurants}
+            selectedRestaurant={selectedRestaurant}
+            onSelectRestaurant={handleMarkerSelect}
+          />
         </section>
       </div>
     </main>
