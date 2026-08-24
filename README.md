@@ -95,7 +95,7 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - raw upstream 오류와 credential을 반환하지 않는 normalized response
 - 저장된 Supabase restaurant와 review aggregate를 한 번에 조회해 NAVER Map marker 표시
 - marker click/tap으로 공유 restaurant detail과 방문 기록 목록 표시
-- NAVER zoom control을 우측 중앙의 작은 control로 배치해 검색 UI와 분리
+- NAVER zoom control을 우측 중앙의 작은 control로 배치하고 모바일 전용 gutter/detail 표시 제어로 검색·bottom sheet와 분리
 - `ResizeObserver` 기반 map resize 처리
 
 공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps Geocoding](https://api.ncloud-docs.com/docs/application-maps-geocoding), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)

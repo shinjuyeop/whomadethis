@@ -24,11 +24,20 @@ export function NaverMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<NaverMapInstance | null>(null)
   const [map, setMap] = useState<NaverMapInstance | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
   const clientId = import.meta.env.VITE_NAVER_MAP_CLIENT_ID?.trim()
   const [state, setState] = useState<MapState>(
     clientId ? 'loading' : 'missing-config',
   )
   const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const updateViewport = () => setIsMobile(mediaQuery.matches)
+    updateViewport()
+    mediaQuery.addEventListener('change', updateViewport)
+    return () => mediaQuery.removeEventListener('change', updateViewport)
+  }, [])
 
   useEffect(() => {
     if (!clientId || !containerRef.current) {
@@ -99,6 +108,14 @@ export function NaverMap({
     )
     mapRef.current.setZoom(16)
   }, [selectedRestaurant, state])
+
+  useEffect(() => {
+    if (state !== 'ready' || !mapRef.current) return
+    mapRef.current.setOptions(
+      'zoomControl',
+      !(isMobile && selectedRestaurant !== null),
+    )
+  }, [isMobile, selectedRestaurant, state])
 
   useEffect(() => {
     if (state !== 'ready' || !map || !containerRef.current) {
