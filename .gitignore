@@ -16,9 +16,6 @@ dist/
 !.vscode/extensions.json
 .vercel/
 
-# Existing independent project under this workspace root
-/ohnochoo/
-
 # Logs
 *.log
 npm-debug.log*
