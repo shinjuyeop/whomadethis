@@ -21,6 +21,7 @@ export function HomePage() {
     null,
   )
   const [detailRefreshKey, setDetailRefreshKey] = useState(0)
+  const [searchResetKey, setSearchResetKey] = useState(0)
   const [notice, setNotice] = useState('')
   const { restaurants, status, errorMessage, refresh } = useRestaurants()
   const selectedRestaurant =
@@ -46,6 +47,10 @@ export function HomePage() {
     setNotice('')
   }, [])
 
+  const handleMapClick = useCallback(() => {
+    setSearchResetKey((key) => key + 1)
+  }, [])
+
   async function handleReviewDeleted() {
     let message = '방문 기록을 삭제했습니다.'
     try {
@@ -61,7 +66,7 @@ export function HomePage() {
     <main className="map-page">
       <div className="map-layout">
         <aside className="map-sidebar" aria-label="음식점 검색과 선택 정보">
-          <RestaurantSearch onSelect={workflow.openNew} />
+          <RestaurantSearch key={searchResetKey} onSelect={workflow.openNew} />
 
           {notice && !selectedRestaurant && (
             <div className="home-notice" role="status">
@@ -116,6 +121,7 @@ export function HomePage() {
             restaurants={restaurants}
             selectedRestaurant={selectedRestaurant}
             onSelectRestaurant={handleMarkerSelect}
+            onMapClick={handleMapClick}
           />
         </section>
 

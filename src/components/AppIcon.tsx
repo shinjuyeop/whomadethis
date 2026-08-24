@@ -1,5 +1,5 @@
 interface AppIconProps {
-  name: 'map' | 'feed' | 'user' | 'search' | 'arrow'
+  name: 'map' | 'feed' | 'user' | 'search' | 'location' | 'arrow'
 }
 
 export function AppIcon({ name }: AppIconProps) {
@@ -31,6 +31,15 @@ export function AppIcon({ name }: AppIconProps) {
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="11" cy="11" r="7" />
         <path d="m16 16 5 5" />
+      </svg>
+    )
+  }
+  if (name === 'location') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2" />
       </svg>
     )
   }

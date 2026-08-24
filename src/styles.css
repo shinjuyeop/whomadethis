@@ -279,7 +279,8 @@ a {
   display: grid;
   min-width: 44px;
   min-height: 44px;
-  padding: 0 12px;
+  place-items: center;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: var(--accent);
@@ -288,6 +289,7 @@ a {
 }
 
 .search-form button svg {
+  display: block;
   width: 20px;
   height: 20px;
   fill: none;
@@ -654,6 +656,7 @@ a {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  overflow: hidden;
   padding-top: max(18px, env(safe-area-inset-top));
   background: rgb(22 27 24 / 38%);
 }
@@ -661,6 +664,8 @@ a {
 .review-editor {
   display: flex;
   width: 100%;
+  min-width: 0;
+  max-width: 100vw;
   max-height: calc(100dvh - max(18px, env(safe-area-inset-top)));
   flex-direction: column;
   overflow: hidden;
@@ -713,8 +718,12 @@ a {
 
 .review-form {
   display: grid;
+  width: 100%;
   min-height: 0;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: 9px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 16px 18px calc(18px + env(safe-area-inset-bottom));
   overscroll-behavior: contain;
@@ -733,6 +742,7 @@ a {
 .review-form textarea {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -743,6 +753,36 @@ a {
 .review-form > input {
   min-height: 44px;
   padding: 0 11px;
+}
+
+.review-form input[type="date"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.review-form input[type="date"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+}
+
+.rating-field,
+.photo-field,
+.photo-field-heading,
+.photo-selection-list,
+.selected-file-list,
+.review-form .field-hint {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.review-form .field-hint {
+  overflow-wrap: anywhere;
 }
 
 .review-form textarea {
@@ -1148,6 +1188,83 @@ code {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.map-location-control {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  max-width: min(260px, calc(100% - 24px));
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+  transition: bottom 150ms ease;
+}
+
+.map-location-control--raised {
+  bottom: 172px;
+}
+
+.map-location-control button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 3px 12px rgb(32 37 34 / 14%);
+  pointer-events: auto;
+}
+
+.map-location-control button[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.map-location-control svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.map-location-message {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: 0 3px 12px rgb(32 37 34 / 10%);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.current-location-marker {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #2f7de1;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 28%);
+}
+
+.current-location-marker span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
 }
 
 .restaurant-preview {
@@ -1710,6 +1827,10 @@ code {
     border-top: 1px solid var(--border);
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .map-location-control--raised {
+    bottom: 16px;
   }
 
   .review-editor-backdrop {

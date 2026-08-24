@@ -210,7 +210,7 @@ export function ReviewEditor({
               type="range"
               min="0.5"
               max="5"
-              step="0.5"
+              step="0.1"
               value={rating}
               onChange={(event) => setRating(Number(event.target.value))}
               disabled={isSubmitting}
@@ -300,7 +300,7 @@ export function ReviewEditor({
               <input
                 id="review-photos"
                 type="file"
-                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                accept=".jpg,.jpeg,.jpe,.png,.webp,image/jpeg,image/jpg,image/pjpeg,image/png,image/webp"
                 multiple
                 onChange={(event) => {
                   handleFiles(Array.from(event.target.files ?? []))
@@ -310,7 +310,7 @@ export function ReviewEditor({
               />
             </label>
             <small className="field-hint">
-              JPG, PNG, WebP · 긴 변 1600px WebP로 준비해 올립니다.
+              JPEG, PNG, WebP · 긴 변 1600px WebP로 준비해 올립니다.
             </small>
           </div>
 

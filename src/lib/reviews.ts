@@ -56,13 +56,14 @@ function toPhoto(
 }
 
 function validateReviewFields(fields: ReviewFields): void {
+  const ratingInTenths = fields.rating * 10
   if (
     !Number.isFinite(fields.rating) ||
     fields.rating < 0.5 ||
     fields.rating > 5 ||
-    fields.rating * 2 !== Math.trunc(fields.rating * 2)
+    Math.abs(ratingInTenths - Math.round(ratingInTenths)) > 1e-8
   ) {
-    throw new ReviewMutationError('별점은 0.5점 단위로 선택해 주세요.')
+    throw new ReviewMutationError('별점은 0.1점 단위로 선택해 주세요.')
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fields.visitedAt)) {

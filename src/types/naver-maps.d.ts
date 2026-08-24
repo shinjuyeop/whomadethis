@@ -15,14 +15,26 @@ interface NaverMapInstance {
   setZoom(zoom: number): void
 }
 
+interface NaverPoint {
+  readonly x: number
+  readonly y: number
+}
+
+interface NaverHtmlIcon {
+  content: string
+  anchor?: NaverPoint
+}
+
 interface NaverMarkerOptions {
   map: NaverMapInstance
   position: NaverLatLng
   title?: string
+  icon?: NaverHtmlIcon
 }
 
 interface NaverMarkerInstance {
   setMap(map: NaverMapInstance | null): void
+  setPosition(position: NaverLatLng): void
 }
 
 interface NaverMapsEventListener {
@@ -31,7 +43,7 @@ interface NaverMapsEventListener {
 
 interface NaverMapsEventNamespace {
   addListener(
-    target: NaverMarkerInstance,
+    target: NaverMarkerInstance | NaverMapInstance,
     eventName: string,
     listener: () => void,
   ): NaverMapsEventListener
@@ -43,6 +55,7 @@ interface NaverMapsNamespace {
   Map: new (element: HTMLElement, options: NaverMapOptions) => NaverMapInstance
   Marker: new (options: NaverMarkerOptions) => NaverMarkerInstance
   LatLng: new (latitude: number, longitude: number) => NaverLatLng
+  Point: new (x: number, y: number) => NaverPoint
   Event: NaverMapsEventNamespace
 }
 

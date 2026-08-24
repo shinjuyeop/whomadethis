@@ -8,9 +8,12 @@ const WEBP_QUALITY = 0.82
 const REVIEW_IMAGE_BUCKET = 'review-images'
 const SUPPORTED_IMAGE_TYPES = new Set([
   'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
   'image/png',
   'image/webp',
 ])
+const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.jpe', '.png', '.webp']
 
 export interface ImageUploadProgress {
   phase: 'processing' | 'uploading'
@@ -40,9 +43,13 @@ export function validateReviewImageFiles(files: File[]): void {
       )
     }
 
-    if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
+    const hasSupportedType = SUPPORTED_IMAGE_TYPES.has(file.type.toLowerCase())
+    const hasSupportedExtension = SUPPORTED_IMAGE_EXTENSIONS.some((extension) =>
+      lowerName.endsWith(extension),
+    )
+    if (!hasSupportedType && !hasSupportedExtension) {
       throw new ReviewImageError(
-        'JPG, PNG, WebP 형식의 사진만 선택할 수 있습니다.',
+        'JPEG, PNG, WebP 형식의 사진만 선택할 수 있습니다.',
       )
     }
 

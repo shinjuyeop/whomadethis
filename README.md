@@ -106,6 +106,8 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - raw upstream 오류와 credential을 반환하지 않는 normalized response
 - 저장된 Supabase restaurant와 review aggregate를 한 번에 조회해 NAVER Map marker 표시
 - marker click/tap으로 공유 restaurant detail과 방문 기록 목록 표시
+- 지도 탭 시 열려 있던 검색 결과와 검색어를 정리해 지도 interaction 복원
+- 브라우저 위치 권한을 사용해 현재 위치 marker 표시와 지도 이동, 거부/timeout 안내
 - NAVER 기본 zoom control은 표시하지 않고 desktop wheel/trackpad와 mobile pinch/touch의 native 지도 gesture를 유지
 - `ResizeObserver` 기반 map resize 처리
 
@@ -119,7 +121,7 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 
 - `profiles`: `auth.users`와 1:1인 nickname/avatar profile
 - `restaurants`: NAVER 기반 위치와 생성자, normalized `name|address` source key
-- `reviews`: 여러 번의 방문을 허용하는 0.5~5.0, 0.5 단위 rating review
+- `reviews`: 여러 번의 방문을 허용하는 0.5~5.0, 0.1 단위 rating review
 - `review_photos`: Storage object path와 순서만 저장하는 metadata
 - 필요한 recent review/photo lookup index와 `updated_at` trigger
 
@@ -186,7 +188,7 @@ private `review-images` bucket을 사용합니다.
              → 만료 1시간 signed URL로 표시
 ```
 
-사진은 review당 최대 5장입니다. 브라우저에서 긴 변을 최대 1600px로 줄이고 WebP quality 0.82로 변환한 뒤 `<user_id>/<review_id>/<uuid>.webp`에 저장합니다. HEIC/HEIF와 브라우저가 해석하지 못하는 형식은 명시적으로 거절합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
+사진은 review당 최대 5장입니다. JPEG/JPG, PNG, WebP 입력을 받아 브라우저에서 긴 변을 최대 1600px로 줄이고 WebP quality 0.82로 변환한 뒤 `<user_id>/<review_id>/<uuid>.webp`에 저장합니다. HEIC/HEIF와 브라우저가 해석하지 못하는 형식은 명시적으로 거절합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
 
 사진 업로드는 핵심 방문 기록과 분리해 순차 처리합니다. 일부 사진이 실패하면 review와 이미 성공한 사진은 유지하고 사용자에게 부분 실패를 알립니다. Review 삭제 시 Storage object를 먼저 삭제한 뒤 photo metadata와 review를 삭제해 실제 object가 남지 않게 합니다.
 
@@ -196,7 +198,6 @@ Production: [https://whomadethis-xi.vercel.app](https://whomadethis-xi.vercel.ap
 
 현재 Auth/session, NAVER 검색/Geocoding, 지도 marker, transaction 기반 방문 기록, 공유 detail, review/photo CRUD, Feed pagination, MY 통계/기록, Realtime, responsive app shell까지 구현되어 있습니다. 다음 항목은 MVP 이후의 선택 기능입니다.
 
-1. 현재 위치로 지도 이동
-2. 사진 순서 재정렬과 앱 내부 확대 viewer
-3. Storage cleanup 보강을 위한 서버 재시도 작업
-4. 사용자 수 증가 시 Broadcast 기반 Realtime 확장
+1. 사진 순서 재정렬과 앱 내부 확대 viewer
+2. Storage cleanup 보강을 위한 서버 재시도 작업
+3. 사용자 수 증가 시 Broadcast 기반 Realtime 확장
