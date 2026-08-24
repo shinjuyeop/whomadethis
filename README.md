@@ -37,7 +37,7 @@ supabase/
               → NAVER 음식점 검색 → 선택 → 지도 marker
 ```
 
-Supabase 프로젝트에서 이메일 확인이 활성화된 경우 회원가입 직후 인증 이메일 안내를 표시합니다. 확인을 우회하거나 관리자 승인을 요구하지 않습니다. 인증된 사용자에게 profile이 없을 때만 nickname 설정 화면이 나타나며, MY에서 nickname 변경과 로그아웃을 할 수 있습니다. Session 확인이 끝나기 전에는 지도 route를 렌더링하지 않습니다.
+현재 MVP에서는 이메일 확인 없이 nickname, 이메일, 비밀번호, 비밀번호 확인만 입력하면 가입과 동시에 로그인됩니다. 이메일 확인이 필요해지면 Supabase Auth 설정과 가입 완료 UX를 함께 다시 활성화합니다. 사용자에게 profile이 없을 때만 nickname 설정 화면이 나타나며, MY에서 nickname 변경과 로그아웃을 할 수 있습니다. Session 확인이 끝나기 전에는 지도 route를 렌더링하지 않습니다.
 
 `vercel.json`은 `/login`, `/signup`, `/my` 직접 접근을 SPA entry로 rewrite합니다. `/api/naver-search` function route는 rewrite 대상에 포함하지 않습니다.
 

@@ -9,9 +9,9 @@ export function SignupPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [nickname, setNickname] = useState('')
   const [message, setMessage] = useState('')
-  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isLoading) {
@@ -31,20 +31,17 @@ export function SignupPage() {
       return
     }
 
+    if (password !== passwordConfirmation) {
+      setMessage('비밀번호가 일치하지 않습니다.')
+      return
+    }
+
     setIsSubmitting(true)
     setMessage('')
 
     try {
-      const result = await signUpWithEmail(
-        email.trim(),
-        password,
-        trimmedNickname,
-      )
-      if (result.requiresEmailConfirmation) {
-        setNeedsEmailConfirmation(true)
-      } else {
-        navigate('/', { replace: true })
-      }
+      await signUpWithEmail(email.trim(), password, trimmedNickname)
+      navigate('/', { replace: true })
     } catch (error) {
       setMessage(
         error instanceof AuthActionError
@@ -54,21 +51,6 @@ export function SignupPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  if (needsEmailConfirmation) {
-    return (
-      <main className="auth-page">
-        <section className="auth-card auth-card--message" role="status">
-          <div className="auth-wordmark">whomadethis</div>
-          <h1>인증 이메일을 확인해 주세요</h1>
-          <p>이메일의 인증 링크를 연 뒤 로그인하면 바로 시작할 수 있습니다.</p>
-          <Link className="primary-link" to="/login">
-            로그인으로 이동
-          </Link>
-        </section>
-      </main>
-    )
   }
 
   return (
@@ -113,6 +95,17 @@ export function SignupPage() {
             required
           />
           <small className="field-hint">6자 이상 입력해 주세요.</small>
+
+          <label htmlFor="signup-password-confirmation">비밀번호 확인</label>
+          <input
+            id="signup-password-confirmation"
+            type="password"
+            value={passwordConfirmation}
+            onChange={(event) => setPasswordConfirmation(event.target.value)}
+            autoComplete="new-password"
+            minLength={6}
+            required
+          />
 
           {(message || authError) && (
             <p className="form-message form-message--error" role="alert">

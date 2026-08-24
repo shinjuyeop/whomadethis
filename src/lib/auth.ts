@@ -1,10 +1,4 @@
-import type { Session } from '@supabase/supabase-js'
 import { getSupabaseClient } from './supabase'
-
-export interface SignUpResult {
-  session: Session | null
-  requiresEmailConfirmation: boolean
-}
 
 export class AuthActionError extends Error {}
 
@@ -23,7 +17,7 @@ function authErrorMessage(code?: string): string {
     case 'over_request_rate_limit':
       return '요청이 많습니다. 잠시 후 다시 시도해 주세요.'
     default:
-      return '인증 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      return '계정 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
   }
 }
 
@@ -44,7 +38,7 @@ export async function signUpWithEmail(
   email: string,
   password: string,
   nickname: string,
-): Promise<SignUpResult> {
+) {
   const { data, error } = await getSupabaseClient().auth.signUp({
     email,
     password,
@@ -57,10 +51,13 @@ export async function signUpWithEmail(
     throw new AuthActionError(authErrorMessage(error.code))
   }
 
-  return {
-    session: data.session,
-    requiresEmailConfirmation: data.session === null,
+  if (!data.session) {
+    throw new AuthActionError(
+      '회원가입 후 로그인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    )
   }
+
+  return data.session
 }
 
 export async function signOut() {
