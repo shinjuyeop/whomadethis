@@ -62,6 +62,14 @@ export function ReviewEditor({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [progress, setProgress] = useState<ImageUploadProgress | null>(null)
   const existingPhotos = review?.photos ?? []
+  const newFilePreviews = useMemo(
+    () =>
+      newFiles.map((file) => ({
+        file,
+        url: URL.createObjectURL(file),
+      })),
+    [newFiles],
+  )
   const keptPhotoCount = existingPhotos.length - removedPhotoIds.size
   const totalPhotoCount = keptPhotoCount + newFiles.length
   const isDirty = useMemo(
@@ -87,12 +95,18 @@ export function ReviewEditor({
     if (isSubmitting) return
     if (
       isDirty &&
-      !window.confirm('작성 중인 내용이 있습니다. 방문 기록 작성을 닫을까요?')
+      !window.confirm('작성 중인 내용이 있습니다. 후기 작성을 닫을까요?')
     ) {
       return
     }
     onClose()
   }
+
+  useEffect(() => {
+    return () => {
+      newFilePreviews.forEach((preview) => URL.revokeObjectURL(preview.url))
+    }
+  }, [newFilePreviews])
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -186,7 +200,7 @@ export function ReviewEditor({
       >
         <header className="review-editor-header">
           <div>
-            <p>{review ? '방문 기록 수정' : '방문 기록 남기기'}</p>
+            <p>{review ? '후기 수정' : '후기 남기기'}</p>
             <h2 id="review-editor-title">{restaurantName}</h2>
             {restaurantAddress && <address>{restaurantAddress}</address>}
           </div>
@@ -195,7 +209,7 @@ export function ReviewEditor({
             className="icon-button"
             onClick={requestClose}
             disabled={isSubmitting}
-            aria-label="방문 기록 작성 닫기"
+            aria-label="후기 작성 닫기"
           >
             ×
           </button>
@@ -275,10 +289,13 @@ export function ReviewEditor({
             )}
 
             {newFiles.length > 0 && (
-              <ul className="selected-file-list">
-                {newFiles.map((file, index) => (
-                  <li key={`${file.name}-${file.lastModified}-${index}`}>
-                    <span>{file.name}</span>
+              <ul className="photo-selection-list photo-selection-list--new">
+                {newFilePreviews.map(({ file, url }, index) => (
+                  <li
+                    key={`${file.name}-${file.lastModified}-${index}`}
+                    title={file.name}
+                  >
+                    <img src={url} alt={`새로 선택한 사진 ${index + 1}`} />
                     <button
                       type="button"
                       onClick={() =>
@@ -287,6 +304,7 @@ export function ReviewEditor({
                         )
                       }
                       disabled={isSubmitting}
+                      aria-label={`${file.name} 선택 해제`}
                     >
                       제외
                     </button>
@@ -300,7 +318,7 @@ export function ReviewEditor({
               <input
                 id="review-photos"
                 type="file"
-                accept=".jpg,.jpeg,.jpe,.png,.webp,image/jpeg,image/jpg,image/pjpeg,image/png,image/webp"
+                accept="image/*,.heic,.heif"
                 multiple
                 onChange={(event) => {
                   handleFiles(Array.from(event.target.files ?? []))
@@ -310,7 +328,7 @@ export function ReviewEditor({
               />
             </label>
             <small className="field-hint">
-              JPEG, PNG, WebP · 긴 변 1600px WebP로 준비해 올립니다.
+              브라우저에서 열 수 있는 사진 · 긴 변 1440px WebP로 자동 압축
             </small>
           </div>
 
@@ -334,7 +352,7 @@ export function ReviewEditor({
               className="primary-button"
               disabled={isSubmitting}
             >
-              {isSubmitting ? progressLabel(progress) : review ? '수정하기' : '기록하기'}
+              {isSubmitting ? progressLabel(progress) : review ? '수정하기' : '후기 저장'}
             </button>
           </div>
         </form>

@@ -127,7 +127,12 @@ export async function loadRestaurantReviews(
       ? row.photos.map((photo) => photo.storage_path)
       : [],
   )
-  const signedUrls = await createSignedReviewImageUrls(paths)
+  let signedUrls = new Map<string, string>()
+  try {
+    signedUrls = await createSignedReviewImageUrls(paths)
+  } catch {
+    // Review text remains available if Storage signing is temporarily unavailable.
+  }
 
   return rows.map((row) => ({
     id: row.id,
@@ -143,6 +148,28 @@ export async function loadRestaurantReviews(
       .map((photo) => toPhoto(photo, signedUrls))
       .sort((left, right) => left.sortOrder - right.sortOrder),
   }))
+}
+
+export async function loadReviewPhotos(reviewId: string): Promise<ReviewPhoto[]> {
+  const { data, error } = await getSupabaseClient()
+    .from('review_photos')
+    .select('id, review_id, storage_path, sort_order')
+    .eq('review_id', reviewId)
+    .order('sort_order')
+  if (error) {
+    throw new ReviewMutationError('기존 사진 정보를 확인하지 못했습니다.')
+  }
+
+  const rows = (data ?? []) as ReviewPhotoRow[]
+  let signedUrls = new Map<string, string>()
+  try {
+    signedUrls = await createSignedReviewImageUrls(
+      rows.map((row) => row.storage_path),
+    )
+  } catch {
+    // Sort order data is enough to safely append a photo.
+  }
+  return rows.map((row) => toPhoto(row, signedUrls))
 }
 
 export async function updateReview(

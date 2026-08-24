@@ -126,7 +126,7 @@ a {
 .mobile-nav {
   z-index: 10;
   display: grid;
-  min-height: 62px;
+  min-height: calc(70px + env(safe-area-inset-bottom));
   flex: none;
   grid-template-columns: repeat(3, 1fr);
   padding-bottom: env(safe-area-inset-bottom);
@@ -135,8 +135,9 @@ a {
 }
 
 .mobile-nav .app-nav-link {
+  min-height: 70px;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
   font-size: 0.75rem;
 }
 
@@ -1434,7 +1435,8 @@ code {
   gap: 12px;
 }
 
-.activity-heading a {
+.activity-heading a,
+.activity-restaurant-name {
   overflow: hidden;
   font-size: 1.08rem;
   font-weight: 780;
@@ -1465,7 +1467,8 @@ code {
   scrollbar-width: thin;
 }
 
-.activity-photos a {
+.activity-photos a,
+.activity-photo {
   width: min(82vw, 520px);
   aspect-ratio: 4 / 3;
   flex: 0 0 auto;
@@ -1475,7 +1478,9 @@ code {
 }
 
 .activity-photos--2 a,
-.activity-photos:has(a:nth-child(3)) a {
+.activity-photos--2 .activity-photo,
+.activity-photos:has(a:nth-child(3)) a,
+.activity-photos:has(.activity-photo:nth-child(3)) .activity-photo {
   width: min(67vw, 340px);
 }
 
@@ -1658,6 +1663,18 @@ code {
   padding: 16px 0;
 }
 
+.activity-item--editable {
+  cursor: pointer;
+}
+
+.activity-item--editable:hover {
+  background: var(--surface-muted);
+}
+
+.activity-item--editable:focus-visible {
+  outline-offset: -3px;
+}
+
 .activity-item--compact .activity-photos {
   float: right;
   width: 72px;
@@ -1665,14 +1682,22 @@ code {
   overflow: hidden;
 }
 
-.activity-item--compact .activity-photos a {
+.activity-item--compact .activity-photos a,
+.activity-item--compact .activity-photos .activity-photo {
   display: none;
   width: 72px;
   aspect-ratio: 1;
 }
 
-.activity-item--compact .activity-photos a:first-child {
+.activity-item--compact .activity-photos a:first-child,
+.activity-item--compact .activity-photos .activity-photo:first-child {
   display: block;
+}
+
+.activity-edit-label {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .empty-state--left {

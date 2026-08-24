@@ -12,7 +12,13 @@ import {
   useReviewWorkflow,
 } from '../hooks/useReviewWorkflow'
 import { useRestaurants } from '../hooks/useRestaurants'
+import { loadRestaurantReviews } from '../lib/reviews'
 import type { Restaurant } from '../types/database'
+import type { RestaurantSearchResult } from '../types/naverSearch'
+
+function normalizedSourceKey(name: string, address: string | null): string {
+  return `${name.trim().toLowerCase().replace(/\s+/g, '')}|${(address ?? '').trim().toLowerCase().replace(/\s+/g, '')}`
+}
 
 export function HomePage() {
   const { profile } = useOutletContext<AuthenticatedOutletContext>()
@@ -51,6 +57,36 @@ export function HomePage() {
     setSearchResetKey((key) => key + 1)
   }, [])
 
+  async function handleSearchSelect(result: RestaurantSearchResult) {
+    const resultKey = normalizedSourceKey(
+      result.title,
+      result.roadAddress || result.address,
+    )
+    const existingRestaurant = restaurants.find(
+      (restaurant) => restaurant.sourceKey === resultKey,
+    )
+    if (!existingRestaurant) {
+      workflow.openNew(result)
+      return
+    }
+
+    setSelectedRestaurantId(existingRestaurant.id)
+    setNotice('')
+    try {
+      const reviews = await loadRestaurantReviews(existingRestaurant.id)
+      const currentUserReview = reviews.find(
+        (review) => review.userId === profile.id,
+      )
+      if (currentUserReview) {
+        workflow.openEdit(existingRestaurant, currentUserReview)
+      } else {
+        workflow.openNew(result)
+      }
+    } catch {
+      setNotice('기존 후기를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    }
+  }
+
   async function handleReviewDeleted() {
     let message = '방문 기록을 삭제했습니다.'
     try {
@@ -66,9 +102,9 @@ export function HomePage() {
     <main className="map-page">
       <div className="map-layout">
         <aside className="map-sidebar" aria-label="음식점 검색과 선택 정보">
-          <RestaurantSearch key={searchResetKey} onSelect={workflow.openNew} />
+          <RestaurantSearch key={searchResetKey} onSelect={handleSearchSelect} />
 
-          {notice && !selectedRestaurant && (
+          {notice && (!selectedRestaurant || isMobile) && (
             <div className="home-notice" role="status">
               <span>{notice}</span>
               <button type="button" onClick={() => setNotice('')} aria-label="알림 닫기">
@@ -127,13 +163,18 @@ export function HomePage() {
 
         {selectedRestaurant && isMobile && (
           <RestaurantPreview
+            key={selectedRestaurant.id}
             restaurant={selectedRestaurant}
+            currentUserId={profile.id}
             onClose={() => {
               setSelectedRestaurantId(null)
               setNotice('')
             }}
             onAddReview={() =>
               workflow.openNew(restaurantToSearchResult(selectedRestaurant))
+            }
+            onEditReview={(review) =>
+              workflow.openEdit(selectedRestaurant, review)
             }
           />
         )}

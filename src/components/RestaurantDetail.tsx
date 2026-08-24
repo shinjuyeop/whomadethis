@@ -98,6 +98,9 @@ export function RestaurantDetail({
     restaurant.reviewCount > 0 && restaurant.averageRating !== null
       ? `★ ${restaurant.averageRating.toFixed(1)} · 리뷰 ${restaurant.reviewCount}개`
       : '아직 평점이 없어요'
+  const currentUserReview = reviews.find(
+    (review) => review.userId === currentUserId,
+  )
 
   return (
     <section className="restaurant-detail" aria-labelledby="restaurant-detail-title">
@@ -132,8 +135,19 @@ export function RestaurantDetail({
         </div>
       )}
 
-      <button type="button" className="detail-add-review" onClick={onAddReview}>
-        나도 기록하기
+      <button
+        type="button"
+        className="detail-add-review"
+        onClick={() =>
+          currentUserReview ? onEditReview(currentUserReview) : onAddReview()
+        }
+        disabled={status !== 'ready'}
+      >
+        {status === 'loading'
+          ? '후기 확인 중…'
+          : currentUserReview
+            ? '후기 수정하기'
+            : '후기 남기기'}
       </button>
 
       <div className="review-list-section">
@@ -148,7 +162,7 @@ export function RestaurantDetail({
           </div>
         )}
         {status === 'ready' && reviews.length === 0 && (
-          <p className="detail-state">아직 이곳에 기록이 없어요. 첫 기록을 남겨보세요.</p>
+          <p className="detail-state">아직 이곳에 후기가 없어요. 첫 후기를 남겨보세요.</p>
         )}
         {status === 'ready' && reviews.length > 0 && (
           <ul className="review-list">

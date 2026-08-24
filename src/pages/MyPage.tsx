@@ -2,8 +2,10 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { ActivityReviewItem } from '../components/ActivityReviewItem'
 import type { AuthenticatedOutletContext } from '../components/AuthenticatedApp'
+import { ReviewEditor } from '../components/ReviewEditor'
 import { useAuth } from '../hooks/useAuth'
 import { useMyDashboard } from '../hooks/useMyDashboard'
+import { useReviewWorkflow } from '../hooks/useReviewWorkflow'
 import { AuthActionError, signOut } from '../lib/auth'
 
 export function MyPage() {
@@ -17,6 +19,14 @@ export function MyPage() {
   const [messageKind, setMessageKind] = useState<'error' | 'success'>('success')
   const [isSaving, setIsSaving] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const workflow = useReviewWorkflow({
+    userId: profile.id,
+    onSaved: async ({ message: savedMessage }) => {
+      await dashboard.reload()
+      setMessage(savedMessage)
+      setMessageKind('success')
+    },
+  })
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -67,7 +77,8 @@ export function MyPage() {
   ]
 
   return (
-    <main className="content-page my-page">
+    <>
+      <main className="content-page my-page">
       <div className="my-column">
         <header className="my-header">
           <div>
@@ -127,7 +138,14 @@ export function MyPage() {
           )}
           {dashboard.items.length > 0 && (
             <div className="activity-list activity-list--compact">
-              {dashboard.items.map((review) => <ActivityReviewItem key={review.id} review={review} compact />)}
+              {dashboard.items.map((review) => (
+                <ActivityReviewItem
+                  key={review.id}
+                  review={review}
+                  compact
+                  onEdit={() => workflow.openActivityEdit(review)}
+                />
+              ))}
             </div>
           )}
           {dashboard.hasMore && (
@@ -144,6 +162,20 @@ export function MyPage() {
           </button>
         </footer>
       </div>
-    </main>
+      </main>
+
+      {workflow.editor && (
+        <ReviewEditor
+          key={workflow.editor.review?.id}
+          restaurantName={workflow.editor.target.title}
+          restaurantAddress={
+            workflow.editor.target.roadAddress || workflow.editor.target.address
+          }
+          review={workflow.editor.review}
+          onSubmit={workflow.submit}
+          onClose={workflow.closeEditor}
+        />
+      )}
+    </>
   )
 }

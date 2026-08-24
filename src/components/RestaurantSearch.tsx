@@ -6,7 +6,7 @@ import type {
 import { AppIcon } from './AppIcon'
 
 interface RestaurantSearchProps {
-  onSelect: (restaurant: RestaurantSearchResult) => void
+  onSelect: (restaurant: RestaurantSearchResult) => void | Promise<void>
 }
 
 const SEARCH_UNAVAILABLE_MESSAGE =
@@ -85,7 +85,7 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
 
   function handleSelect(item: RestaurantSearchResult) {
     setMessage('')
-    onSelect(item)
+    void onSelect(item)
   }
 
   return (
@@ -144,7 +144,7 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
                           </span>
                         </span>
                         <span className="search-result-action">
-                          기록하기
+                          후기 남기기
                         </span>
                       </button>
                     </li>

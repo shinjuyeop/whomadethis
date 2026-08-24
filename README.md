@@ -36,7 +36,7 @@ supabase/
 
 ```text
 회원가입/로그인 → nickname profile 확인 → 지도
-              → NAVER 음식점 검색 → 방문 기록 작성 → marker/detail
+              → NAVER 음식점 검색 → 후기 작성/수정 → marker/detail
               → Feed에서 친구의 최신 기록 확인
               → MY에서 내 통계와 방문 기록 확인
 ```
@@ -52,7 +52,7 @@ supabase/
 | `/` | NAVER Map, 음식점 검색, marker와 restaurant preview/sidebar |
 | `/feed` | 모든 인증 사용자의 최근 방문 기록, 20개 단위 더 보기 |
 | `/restaurants/:id` | 음식점 정보, 평균/리뷰 수, 사진과 방문 기록 CRUD |
-| `/my` | 닉네임, 내 통계, 내 최근 방문 기록, 로그아웃 |
+| `/my` | 닉네임, 내 통계, 클릭해서 수정하는 내 최근 후기, 로그아웃 |
 | `/login`, `/signup` | 이메일/비밀번호 Auth와 nickname 가입 |
 
 ## 로컬 설정
@@ -98,7 +98,7 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - SDK를 한 번만 비동기 로드하는 helper와 서울권 초기 viewport
 - Client ID 누락, load timeout/failure, `window.naver` 초기화 실패 UI
 - idle/loading/success/empty/error를 처리하는 음식점 검색 UI
-- 결과의 `기록하기` 선택은 DB를 변경하지 않고 방문 기록 작성 UI만 표시
+- 결과의 `후기 남기기` 선택은 DB를 변경하지 않고 후기 작성 UI만 표시
 - 좌표가 없는 결과를 선택할 때만 도로명 주소 우선 lazy Geocoding
 - `GET /api/naver-search?q=<query>`의 method, 공백, 100자 제한 검증
 - `GET /api/naver-geocode?address=<address>`의 method, 공백, 300자 제한 검증
@@ -121,20 +121,20 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 
 - `profiles`: `auth.users`와 1:1인 nickname/avatar profile
 - `restaurants`: NAVER 기반 위치와 생성자, normalized `name|address` source key
-- `reviews`: 여러 번의 방문을 허용하는 0.5~5.0, 0.1 단위 rating review
+- `reviews`: 사용자와 음식점당 하나인 0.5~5.0, 0.1 단위 rating review
 - `review_photos`: Storage object path와 순서만 저장하는 metadata
 - 필요한 recent review/photo lookup index와 `updated_at` trigger
 
 Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 함께 지워지지 않게 합니다. Review 삭제 시에만 photo metadata가 cascade됩니다. NAVER Local Search에는 안정적인 place ID 필드가 없으므로 존재하지 않는 ID를 만들지 않고, source + 공백/대소문자를 정규화한 음식점명과 도로명(없으면 지번) 주소 조합으로 단순 중복을 막습니다. fuzzy matching은 하지 않습니다.
 
-검색 결과 선택 자체는 DB를 변경하지 않습니다. 사용자가 방문 기록을 제출할 때 `create_visit_review` security-invoker RPC가 기존 `find_or_create_restaurant`를 호출하고 review를 같은 transaction에서 생성합니다. review 생성이 실패하면 신규 restaurant도 남지 않습니다. `(source, source_key)` unique constraint와 `ON CONFLICT`를 그대로 사용하므로 같은 장소의 반복 방문은 restaurant 하나에 여러 review로 누적됩니다. Service role은 사용하지 않습니다.
+검색 결과 선택 자체는 DB를 변경하지 않습니다. 사용자가 후기를 제출할 때 `create_visit_review` security-invoker RPC가 기존 `find_or_create_restaurant`를 호출하고 review를 같은 transaction에서 생성하거나 갱신합니다. `(source, source_key)`와 `(user_id, restaurant_id)` unique constraint를 함께 사용하므로 음식점은 중복 생성되지 않고, 같은 사용자가 같은 장소를 다시 저장하면 기존 후기 하나를 덮어씁니다. Service role은 사용하지 않습니다.
 
 `list_restaurants_with_review_stats`는 restaurant 목록, 평균 평점, 리뷰 수, 대표 사진 경로를 한 번에 반환해 marker별 N+1 조회를 피합니다. `list_restaurant_reviews`는 작성자 nickname과 사진 metadata를 함께 반환합니다. `list_recent_reviews`와 `list_my_reviews`는 profile, restaurant, photo를 관계 조회한 뒤 `created_at DESC`로 20개씩 반환합니다. `get_my_review_stats`는 distinct 음식점, review, photo, 평균 별점을 정확히 집계합니다. 평균 평점은 리뷰가 없을 때 `null`로 유지합니다.
 
 ## Feed, MY, Realtime
 
 - Feed는 사진이 없는 기록을 compact text로, 사진이 있는 기록을 가로 사진 영역으로 표시합니다.
-- MY는 다녀온 곳, 방문 기록, 사진, 평균 별점과 본인의 최근 기록을 한 화면에 표시합니다.
+- MY는 다녀온 곳, 방문 기록, 사진, 평균 별점과 본인의 최근 기록을 한 화면에 표시하며 최근 기록을 누르면 바로 수정할 수 있습니다.
 - 인증 세션당 `RealtimeProvider` 채널 하나가 `restaurants`, `reviews`, `review_photos`, `profiles` 변경을 구독합니다.
 - 짧은 시간에 연속된 이벤트를 하나로 묶고, 화면 데이터는 ID 기준 페이지 결과로 교체/병합합니다.
 - review 변경 시 클라이언트 delta 계산 대신 aggregate RPC를 재조회해 Map, Detail, Feed, MY 값을 일치시킵니다.
@@ -155,7 +155,7 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 
 ## Responsive application shell
 
-- Mobile `< 768px`: 전체 지도, 상단 floating search, compact restaurant preview, 상세 route/review sheet, 하단 `지도/피드/MY` navigation
+- Mobile `< 768px`: 전체 지도, 상단 floating search, compact restaurant preview, 상세 route/review sheet, safe area를 확보한 하단 `지도/피드/MY` navigation
 - Tablet/Desktop `>= 768px`: 350px sidebar와 나머지 지도 영역
 - Wide desktop `>= 1200px`: 390px sidebar와 확장된 지도 영역
 
@@ -188,9 +188,9 @@ private `review-images` bucket을 사용합니다.
              → 만료 1시간 signed URL로 표시
 ```
 
-사진은 review당 최대 5장입니다. JPEG/JPG, PNG, WebP 입력을 받아 브라우저에서 긴 변을 최대 1600px로 줄이고 WebP quality 0.82로 변환한 뒤 `<user_id>/<review_id>/<uuid>.webp`에 저장합니다. HEIC/HEIF와 브라우저가 해석하지 못하는 형식은 명시적으로 거절합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
+사진은 review당 최대 5장입니다. 파일 선택은 `image/*`와 모바일 HEIC/HEIF 입력을 열어 두고, 브라우저가 실제로 해석할 수 있는 사진을 긴 변 최대 1440px, WebP quality 0.78로 변환한 뒤 `<user_id>/<review_id>/<uuid>.webp`에 저장합니다. 선택 즉시 thumbnail을 표시하며 브라우저가 읽을 수 없는 형식만 문맥 오류로 안내합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
 
-사진 업로드는 핵심 방문 기록과 분리해 순차 처리합니다. 일부 사진이 실패하면 review와 이미 성공한 사진은 유지하고 사용자에게 부분 실패를 알립니다. Review 삭제 시 Storage object를 먼저 삭제한 뒤 photo metadata와 review를 삭제해 실제 object가 남지 않게 합니다.
+사진 업로드는 핵심 후기와 분리해 순차 처리합니다. 새 후기의 사진 묶음 중 하나라도 실패하면 그 묶음에서 이미 올라간 object와 metadata를 되돌리고 편집창에 재시도 가능한 오류를 표시합니다. Feed/MY/detail은 사진별 signed URL을 경로 기준으로 연결하며 Storage signing이 일시적으로 실패해도 후기 text는 계속 표시합니다. Review 삭제 시 Storage object를 먼저 삭제한 뒤 photo metadata와 review를 삭제해 실제 object가 남지 않게 합니다.
 
 ## Production과 향후 선택 기능
 
