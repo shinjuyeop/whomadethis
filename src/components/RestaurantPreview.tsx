@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { loadRestaurantReviews } from '../lib/reviews'
 import type { Restaurant, Review } from '../types/database'
+import { AppIcon } from './AppIcon'
 
 interface RestaurantPreviewProps {
   restaurant: Restaurant
@@ -50,13 +51,12 @@ export function RestaurantPreview({
     reviewReloadKey,
   ])
 
-  const rating =
+  const hasRating =
     restaurant.reviewCount > 0 && restaurant.averageRating !== null
-      ? `★ ${restaurant.averageRating.toFixed(1)} · 리뷰 ${restaurant.reviewCount}개`
-      : '아직 방문 기록이 없어요'
 
   return (
     <section className="restaurant-preview" aria-labelledby="preview-title">
+      <span className="restaurant-preview-handle" aria-hidden="true" />
       {restaurant.coverPhotoUrl && (
         <img src={restaurant.coverPhotoUrl} alt={`${restaurant.name} 대표 방문 사진`} />
       )}
@@ -64,12 +64,21 @@ export function RestaurantPreview({
         <div className="restaurant-preview-heading">
           <div>
             <h2 id="preview-title">{restaurant.name}</h2>
-            <p>{rating}</p>
           </div>
+          <strong className="restaurant-preview-rating">
+            {hasRating ? `★ ${restaurant.averageRating?.toFixed(1)}` : '새 장소'}
+          </strong>
           <button type="button" onClick={onClose} aria-label="선택한 음식점 닫기">
-            ×
+            <AppIcon name="x" />
           </button>
         </div>
+        <p className="restaurant-preview-meta">
+          {restaurant.category || '음식점'}
+          <span aria-hidden="true"> · </span>
+          {restaurant.reviewCount > 0
+            ? `후기 ${restaurant.reviewCount}개`
+            : '첫 후기를 기다리고 있어요'}
+        </p>
         <address>
           {restaurant.roadAddress || restaurant.address || '주소 정보 없음'}
         </address>

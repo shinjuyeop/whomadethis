@@ -138,10 +138,10 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
                       >
                         <span className="search-result-copy">
                           <strong>{item.title}</strong>
-                          <small>{item.category || '음식점'}</small>
                           <span>
                             {item.roadAddress || item.address || '주소 정보 없음'}
                           </span>
+                          <small>{item.category || '음식점'}</small>
                         </span>
                         <span className="search-result-action">
                           후기 남기기

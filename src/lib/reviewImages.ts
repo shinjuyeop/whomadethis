@@ -5,7 +5,14 @@ export const MAX_REVIEW_PHOTOS = 5
 const MAX_SOURCE_FILE_SIZE = 25 * 1024 * 1024
 const MAX_IMAGE_EDGE = 1440
 const WEBP_QUALITY = 0.78
+const JPEG_QUALITY = 0.82
 const REVIEW_IMAGE_BUCKET = 'review-images'
+
+interface PreparedImage {
+  blob: Blob
+  extension: 'webp' | 'jpg' | 'png'
+  contentType: 'image/webp' | 'image/jpeg' | 'image/png'
+}
 
 export interface ImageUploadProgress {
   phase: 'processing' | 'uploading'
@@ -73,7 +80,12 @@ async function loadImage(file: File): Promise<{
   const image = new Image()
   image.decoding = 'async'
   image.src = objectUrl
-  await image.decode()
+  try {
+    await image.decode()
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl)
+    throw error
+  }
   return {
     source: image,
     width: image.naturalWidth,
@@ -82,7 +94,63 @@ async function loadImage(file: File): Promise<{
   }
 }
 
-async function preprocessImage(file: File): Promise<Blob> {
+async function detectEncodedImage(blob: Blob): Promise<PreparedImage | null> {
+  const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer())
+  const isWebp =
+    bytes.length >= 12 &&
+    String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
+    String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP'
+  if (isWebp) {
+    return {
+      blob: new Blob([blob], { type: 'image/webp' }),
+      extension: 'webp',
+      contentType: 'image/webp',
+    }
+  }
+
+  const isJpeg =
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  if (isJpeg) {
+    return {
+      blob: new Blob([blob], { type: 'image/jpeg' }),
+      extension: 'jpg',
+      contentType: 'image/jpeg',
+    }
+  }
+
+  const isPng =
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  if (isPng) {
+    return {
+      blob: new Blob([blob], { type: 'image/png' }),
+      extension: 'png',
+      contentType: 'image/png',
+    }
+  }
+
+  return null
+}
+
+function encodeCanvas(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality?: number,
+): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+}
+
+async function preprocessImage(file: File): Promise<PreparedImage> {
   let loadedImage: Awaited<ReturnType<typeof loadImage>>
   try {
     loadedImage = await loadImage(file)
@@ -111,18 +179,33 @@ async function preprocessImage(file: File): Promise<Blob> {
       throw new ReviewImageError('사진을 준비하지 못했습니다.')
     }
 
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, width, height)
     context.drawImage(loadedImage.source, 0, 0, width, height)
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/webp', WEBP_QUALITY)
-    })
-    if (!blob) {
-      throw new ReviewImageError('사진을 WebP 형식으로 변환하지 못했습니다.')
-    }
-    if (blob.type !== 'image/webp') {
-      throw new ReviewImageError('이 브라우저에서는 사진을 압축하지 못했습니다.')
-    }
 
-    return blob
+    const webpBlob = await encodeCanvas(canvas, 'image/webp', WEBP_QUALITY)
+    const webpResult = webpBlob
+      ? await detectEncodedImage(webpBlob)
+      : null
+    if (webpResult?.contentType === 'image/webp') return webpResult
+
+    const jpegBlob = await encodeCanvas(canvas, 'image/jpeg', JPEG_QUALITY)
+    const jpegResult = jpegBlob
+      ? await detectEncodedImage(jpegBlob)
+      : null
+    if (jpegResult?.contentType === 'image/jpeg') return jpegResult
+
+    // PNG export is required by the canvas specification and gives older or
+    // partially implemented mobile browsers one final, reliable fallback.
+    const pngBlob = await encodeCanvas(canvas, 'image/png')
+    const pngResult = pngBlob ? await detectEncodedImage(pngBlob) : null
+
+    if (webpResult) return webpResult
+    if (jpegResult) return jpegResult
+    if (pngResult) return pngResult
+    throw new ReviewImageError(
+      '사진을 압축하지 못했습니다. 다른 사진으로 다시 시도해 주세요.',
+    )
   } finally {
     loadedImage.cleanup()
   }
@@ -156,15 +239,15 @@ export async function uploadReviewImages(
     let storagePath: string | null = null
     try {
       onProgress?.({ phase: 'processing', current: index + 1, total: files.length })
-      const webp = await preprocessImage(file)
-      storagePath = `${userId}/${reviewId}/${crypto.randomUUID()}.webp`
+      const prepared = await preprocessImage(file)
+      storagePath = `${userId}/${reviewId}/${crypto.randomUUID()}.${prepared.extension}`
       onProgress?.({ phase: 'uploading', current: index + 1, total: files.length })
 
       const { error: uploadError } = await getSupabaseClient()
         .storage.from(REVIEW_IMAGE_BUCKET)
-        .upload(storagePath, webp, {
+        .upload(storagePath, prepared.blob, {
           cacheControl: '3600',
-          contentType: 'image/webp',
+          contentType: prepared.contentType,
           upsert: false,
         })
       if (uploadError) throw new ReviewImageError('사진 업로드에 실패했습니다.')

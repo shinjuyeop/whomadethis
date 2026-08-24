@@ -133,7 +133,7 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 
 ## Feed, MY, Realtime
 
-- Feed는 사진이 없는 기록을 compact text로, 사진이 있는 기록을 가로 사진 영역으로 표시합니다.
+- Feed는 사진이 없는 기록을 compact text로, 사진이 있는 기록을 가로 사진 영역으로 표시하며 사진을 누르면 앱 내부 확대 viewer를 엽니다.
 - MY는 다녀온 곳, 방문 기록, 사진, 평균 별점과 본인의 최근 기록을 한 화면에 표시하며 최근 기록을 누르면 바로 수정할 수 있습니다.
 - 인증 세션당 `RealtimeProvider` 채널 하나가 `restaurants`, `reviews`, `review_photos`, `profiles` 변경을 구독합니다.
 - 짧은 시간에 연속된 이벤트를 하나로 묶고, 화면 데이터는 ID 기준 페이지 결과로 교체/병합합니다.
@@ -188,7 +188,7 @@ private `review-images` bucket을 사용합니다.
              → 만료 1시간 signed URL로 표시
 ```
 
-사진은 review당 최대 5장입니다. 파일 선택은 `image/*`와 모바일 HEIC/HEIF 입력을 열어 두고, 브라우저가 실제로 해석할 수 있는 사진을 긴 변 최대 1440px, WebP quality 0.78로 변환한 뒤 `<user_id>/<review_id>/<uuid>.webp`에 저장합니다. 선택 즉시 thumbnail을 표시하며 브라우저가 읽을 수 없는 형식만 문맥 오류로 안내합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
+사진은 review당 최대 5장입니다. 파일 선택은 `image/*`와 모바일 HEIC/HEIF 입력을 열어 두고, 브라우저가 실제로 해석할 수 있는 사진을 긴 변 최대 1440px로 줄입니다. WebP quality 0.78을 우선 사용하고 브라우저 encoder 동작에 따라 JPEG quality 0.82 또는 PNG로 안전하게 대체합니다. 반환된 binary signature를 검사해 실제 형식과 확장자를 일치시킨 뒤 `<user_id>/<review_id>/<uuid>.<webp|jpg|png>`에 저장하므로 일부 iOS/Android 브라우저가 요청과 다른 MIME을 반환해도 업로드할 수 있습니다. 선택 즉시 thumbnail을 표시하며 브라우저가 읽을 수 없는 형식만 문맥 오류로 안내합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
 
 사진 업로드는 핵심 후기와 분리해 순차 처리합니다. 새 후기의 사진 묶음 중 하나라도 실패하면 그 묶음에서 이미 올라간 object와 metadata를 되돌리고 편집창에 재시도 가능한 오류를 표시합니다. Feed/MY/detail은 사진별 signed URL을 경로 기준으로 연결하며 Storage signing이 일시적으로 실패해도 후기 text는 계속 표시합니다. Review 삭제 시 Storage object를 먼저 삭제한 뒤 photo metadata와 review를 삭제해 실제 object가 남지 않게 합니다.
 
@@ -198,6 +198,6 @@ Production: [https://whomadethis-xi.vercel.app](https://whomadethis-xi.vercel.ap
 
 현재 Auth/session, NAVER 검색/Geocoding, 지도 marker, transaction 기반 방문 기록, 공유 detail, review/photo CRUD, Feed pagination, MY 통계/기록, Realtime, responsive app shell까지 구현되어 있습니다. 다음 항목은 MVP 이후의 선택 기능입니다.
 
-1. 사진 순서 재정렬과 앱 내부 확대 viewer
+1. 사진 순서 재정렬
 2. Storage cleanup 보강을 위한 서버 재시도 작업
 3. 사용자 수 증가 시 Broadcast 기반 Realtime 확장

@@ -8,6 +8,7 @@ import {
 import { RestaurantSelectionError } from '../lib/restaurants'
 import { ReviewMutationError, type ReviewFields } from '../lib/reviews'
 import type { Review, ReviewPhoto } from '../types/database'
+import { AppIcon } from './AppIcon'
 
 export interface ReviewEditorSubmission {
   fields: ReviewFields
@@ -211,7 +212,7 @@ export function ReviewEditor({
             disabled={isSubmitting}
             aria-label="후기 작성 닫기"
           >
-            ×
+            <AppIcon name="x" />
           </button>
         </header>
 
@@ -314,7 +315,8 @@ export function ReviewEditor({
             )}
 
             <label className="photo-picker" htmlFor="review-photos">
-              사진 선택
+              <AppIcon name="camera" />
+              사진 추가
               <input
                 id="review-photos"
                 type="file"
@@ -328,7 +330,7 @@ export function ReviewEditor({
               />
             </label>
             <small className="field-hint">
-              브라우저에서 열 수 있는 사진 · 긴 변 1440px WebP로 자동 압축
+              최대 5장 · 자동으로 크기와 용량을 줄여 올려요.
             </small>
           </div>
 

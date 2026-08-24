@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import type { AuthenticatedOutletContext } from '../components/AuthenticatedApp'
+import { AppIcon } from '../components/AppIcon'
 import { NaverMap } from '../components/NaverMap'
 import { RestaurantDetail } from '../components/RestaurantDetail'
 import { RestaurantPreview } from '../components/RestaurantPreview'
@@ -108,12 +109,15 @@ export function HomePage() {
             <div className="home-notice" role="status">
               <span>{notice}</span>
               <button type="button" onClick={() => setNotice('')} aria-label="알림 닫기">
-                ×
+                <AppIcon name="x" />
               </button>
             </div>
           )}
 
-          <div className="restaurant-load-status" aria-live="polite">
+          <div
+            className={`restaurant-load-status restaurant-load-status--${status}`}
+            aria-live="polite"
+          >
             {status === 'loading' && <p>장소를 불러오는 중…</p>}
             {status === 'error' && (
               <div className="inline-error" role="alert">

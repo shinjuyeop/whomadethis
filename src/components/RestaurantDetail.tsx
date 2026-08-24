@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { deleteReview, loadRestaurantReviews } from '../lib/reviews'
 import type { Restaurant, Review } from '../types/database'
 import { useRealtime } from '../hooks/useRealtime'
+import { AppIcon } from './AppIcon'
+import { PhotoViewer } from './PhotoViewer'
 
 interface RestaurantDetailProps {
   restaurant: Restaurant
@@ -41,6 +43,7 @@ export function RestaurantDetail({
   const [message, setMessage] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null)
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 
   const loadReviews = useCallback(async () => {
     setStatus('loading')
@@ -101,6 +104,20 @@ export function RestaurantDetail({
   const currentUserReview = reviews.find(
     (review) => review.userId === currentUserId,
   )
+  const photoEntries = reviews.flatMap((review) =>
+    review.photos.flatMap((photo, index) =>
+      photo.signedUrl
+        ? [
+            {
+              id: photo.id,
+              url: photo.signedUrl,
+              alt: `${review.authorNickname}의 방문 사진 ${index + 1}`,
+            },
+          ]
+        : [],
+    ),
+  )
+  const viewerPhotos = photoEntries.map(({ url, alt }) => ({ url, alt }))
 
   return (
     <section className="restaurant-detail" aria-labelledby="restaurant-detail-title">
@@ -119,7 +136,7 @@ export function RestaurantDetail({
             onClick={onClose}
             aria-label="음식점 상세 닫기"
           >
-            ×
+            <AppIcon name="x" />
           </button>
         )}
       </header>
@@ -130,8 +147,26 @@ export function RestaurantDetail({
         <div className="detail-notice" role="status">
           <span>{notice}</span>
           <button type="button" onClick={onClearNotice} aria-label="알림 닫기">
-            ×
+            <AppIcon name="x" />
           </button>
+        </div>
+      )}
+
+      {photoEntries.length > 0 && (
+        <div
+          className={`restaurant-photo-strip restaurant-photo-strip--${Math.min(photoEntries.length, 5)}`}
+          aria-label="음식점 방문 사진"
+        >
+          {photoEntries.slice(0, 5).map((photo, index) => (
+            <button
+              key={photo.id}
+              type="button"
+              onClick={() => setViewerIndex(index)}
+              aria-label={`${photo.alt} 크게 보기`}
+            >
+              <img src={photo.url} alt={photo.alt} loading="lazy" />
+            </button>
+          ))}
         </div>
       )}
 
@@ -151,7 +186,7 @@ export function RestaurantDetail({
       </button>
 
       <div className="review-list-section">
-        <h3>방문 기록</h3>
+        <h3>친구들의 후기</h3>
         {status === 'loading' && <p className="detail-state">불러오는 중…</p>}
         {status === 'error' && (
           <div className="inline-error detail-state" role="alert">
@@ -198,11 +233,15 @@ export function RestaurantDetail({
                     <div className="review-photo-grid">
                       {review.photos.map((photo, index) =>
                         photo.signedUrl ? (
-                          <a
+                          <button
                             key={photo.id}
-                            href={photo.signedUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                            type="button"
+                            onClick={() => {
+                              const index = photoEntries.findIndex(
+                                (entry) => entry.id === photo.id,
+                              )
+                              if (index >= 0) setViewerIndex(index)
+                            }}
                             aria-label={`${review.authorNickname}의 방문 사진 ${index + 1} 크게 보기`}
                           >
                             <img
@@ -210,7 +249,7 @@ export function RestaurantDetail({
                               alt={`${review.authorNickname}의 방문 사진 ${index + 1}`}
                               loading="lazy"
                             />
-                          </a>
+                          </button>
                         ) : (
                           <span key={photo.id} className="photo-placeholder">
                             사진을 불러올 수 없어요
@@ -225,6 +264,14 @@ export function RestaurantDetail({
           </ul>
         )}
       </div>
+
+      {viewerIndex !== null && (
+        <PhotoViewer
+          photos={viewerPhotos}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </section>
   )
 }

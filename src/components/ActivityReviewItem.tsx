@@ -1,7 +1,8 @@
+import { useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
-import type { KeyboardEvent } from 'react'
 import { formatRelativeTime, formatVisitedDate } from '../lib/date'
 import type { ActivityReview } from '../types/database'
+import { PhotoViewer } from './PhotoViewer'
 
 interface ActivityReviewItemProps {
   review: ActivityReview
@@ -16,6 +17,11 @@ export function ActivityReviewItem({
 }: ActivityReviewItemProps) {
   const visiblePhotos = review.photos.filter((photo) => photo.signedUrl)
   const isEditable = Boolean(onEdit)
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+  const viewerPhotos = visiblePhotos.map((photo, index) => ({
+    url: photo.signedUrl ?? '',
+    alt: `${review.restaurant.name} 방문 사진 ${index + 1}`,
+  }))
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (!onEdit || (event.key !== 'Enter' && event.key !== ' ')) return
@@ -33,8 +39,16 @@ export function ActivityReviewItem({
       onKeyDown={handleKeyDown}
     >
       <header className="activity-heading">
-        {!compact && <strong>{review.authorNickname}</strong>}
-        <div>
+        {!compact && (
+          <div className="activity-author-row">
+            <strong>{review.authorNickname}</strong>
+            <span aria-hidden="true">·</span>
+            <time dateTime={review.createdAt}>
+              {formatRelativeTime(review.createdAt)} 기록
+            </time>
+          </div>
+        )}
+        <div className="activity-restaurant-row">
           {isEditable ? (
             <span className="activity-restaurant-name">{review.restaurant.name}</span>
           ) : (
@@ -58,19 +72,19 @@ export function ActivityReviewItem({
                 />
               </span>
             ) : (
-              <a
+              <button
                 key={photo.id}
-                href={photo.signedUrl ?? undefined}
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                className="activity-photo-button"
+                onClick={() => setViewerIndex(index)}
                 aria-label={`${review.restaurant.name} 방문 사진 ${index + 1} 크게 보기`}
               >
-              <img
-                src={photo.signedUrl ?? undefined}
-                alt={`${review.restaurant.name} 방문 사진 ${index + 1}`}
-                loading="lazy"
-              />
-              </a>
+                <img
+                  src={photo.signedUrl ?? undefined}
+                  alt={`${review.restaurant.name} 방문 사진 ${index + 1}`}
+                  loading="lazy"
+                />
+              </button>
             )
           ))}
         </div>
@@ -80,13 +94,15 @@ export function ActivityReviewItem({
       <p className="activity-meta">
         <time dateTime={review.visitedAt}>{formatVisitedDate(review.visitedAt)} 방문</time>
         {isEditable && <span className="activity-edit-label">후기 수정</span>}
-        {!compact && (
-          <>
-            <span aria-hidden="true">·</span>
-            <time dateTime={review.createdAt}>{formatRelativeTime(review.createdAt)} 기록</time>
-          </>
-        )}
       </p>
+
+      {viewerIndex !== null && (
+        <PhotoViewer
+          photos={viewerPhotos}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </article>
   )
 }
