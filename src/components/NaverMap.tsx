@@ -49,6 +49,10 @@ export function NaverMap({
           ),
           zoom: 13,
           zoomControl: true,
+          zoomControlOptions: {
+            position: window.naver.maps.Position.RIGHT_CENTER,
+            style: window.naver.maps.ZoomControlStyle.SMALL,
+          },
         })
         mapRef.current = nextMap
         setMap(nextMap)

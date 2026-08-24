@@ -16,10 +16,10 @@ interface RestaurantRow {
   source_key: string
   created_by: string | null
   created_at: string
+  average_rating: number | null
+  review_count: number
 }
 
-const RESTAURANT_COLUMNS =
-  'id,name,category,address,road_address,latitude,longitude,naver_link,source,source_key,created_by,created_at'
 const LOCATION_NOT_FOUND_MESSAGE = '이 장소의 위치를 확인하지 못했습니다.'
 
 export class RestaurantSelectionError extends Error {}
@@ -65,7 +65,7 @@ async function geocodeAddress(address: string): Promise<GeocodeResponse> {
   }
 }
 
-async function resolveCoordinates(
+export async function resolveRestaurantCoordinates(
   result: RestaurantSearchResult,
 ): Promise<GeocodeResponse> {
   if (result.latitude !== null && result.longitude !== null) {
@@ -97,47 +97,20 @@ function toRestaurant(row: RestaurantRow): Restaurant {
     sourceKey: row.source_key,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    averageRating:
+      row.average_rating === null ? null : Number(row.average_rating),
+    reviewCount: Number(row.review_count),
   }
 }
 
 export async function loadRestaurants(): Promise<Restaurant[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('restaurants')
-    .select(RESTAURANT_COLUMNS)
-    .order('created_at', { ascending: true })
+  const { data, error } = await getSupabaseClient().rpc(
+    'list_restaurants_with_review_stats',
+  )
 
   if (error) {
     throw new Error('음식점 목록을 불러오지 못했습니다.')
   }
 
   return ((data ?? []) as RestaurantRow[]).map(toRestaurant)
-}
-
-export async function findOrCreateRestaurant(
-  result: RestaurantSearchResult,
-): Promise<Restaurant> {
-  if (!result.roadAddress && !result.address) {
-    throw new RestaurantSelectionError(LOCATION_NOT_FOUND_MESSAGE)
-  }
-
-  const coordinates = await resolveCoordinates(result)
-
-  const { data, error } = await getSupabaseClient()
-    .rpc('find_or_create_restaurant', {
-      p_name: result.title,
-      p_category: result.category,
-      p_address: result.address,
-      p_road_address: result.roadAddress,
-      p_latitude: coordinates.latitude,
-      p_longitude: coordinates.longitude,
-      p_naver_link: result.link,
-    })
-    .select(RESTAURANT_COLUMNS)
-    .single()
-
-  if (error || !data) {
-    throw new Error('장소를 지도에 표시하지 못했습니다.')
-  }
-
-  return toRestaurant(data as RestaurantRow)
 }

@@ -1,12 +1,11 @@
 import { type FormEvent, useState } from 'react'
-import { RestaurantSelectionError } from '../lib/restaurants'
 import type {
   RestaurantSearchResponse,
   RestaurantSearchResult,
 } from '../types/naverSearch'
 
 interface RestaurantSearchProps {
-  onSelect: (restaurant: RestaurantSearchResult) => Promise<void>
+  onSelect: (restaurant: RestaurantSearchResult) => void
 }
 
 const SEARCH_UNAVAILABLE_MESSAGE =
@@ -36,7 +35,6 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
   const [message, setMessage] = useState('')
   const [messageKind, setMessageKind] = useState<'error' | 'success'>('error')
   const [isLoading, setIsLoading] = useState(false)
-  const [pendingResultKey, setPendingResultKey] = useState<string | null>(null)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -84,24 +82,9 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
     }
   }
 
-  async function handleSelect(item: RestaurantSearchResult, key: string) {
-    setPendingResultKey(key)
+  function handleSelect(item: RestaurantSearchResult) {
     setMessage('')
-
-    try {
-      await onSelect(item)
-      setMessage(`${item.title}을(를) 지도에 표시했어요.`)
-      setMessageKind('success')
-    } catch (error) {
-      setMessage(
-        error instanceof RestaurantSelectionError
-          ? error.message
-          : '장소를 지도에 표시하지 못했습니다. 다시 시도해 주세요.',
-      )
-      setMessageKind('error')
-    } finally {
-      setPendingResultKey(null)
-    }
+    onSelect(item)
   }
 
   return (
@@ -145,14 +128,12 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
               <ul>
                 {result.items.map((item, index) => {
                   const key = `${item.longitude}-${item.latitude}-${item.title}-${index}`
-                  const isPending = pendingResultKey === key
 
                   return (
                     <li key={key}>
                       <button
                         type="button"
-                        disabled={pendingResultKey !== null}
-                        onClick={() => void handleSelect(item, key)}
+                        onClick={() => handleSelect(item)}
                       >
                         <span className="search-result-copy">
                           <strong>{item.title}</strong>
@@ -162,7 +143,7 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
                           </span>
                         </span>
                         <span className="search-result-action">
-                          {isPending ? '표시 중…' : '선택'}
+                          기록하기
                         </span>
                       </button>
                     </li>

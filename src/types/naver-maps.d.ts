@@ -2,6 +2,10 @@ interface NaverMapOptions {
   center: NaverLatLng
   zoom: number
   zoomControl?: boolean
+  zoomControlOptions?: {
+    position?: number
+    style?: number
+  }
 }
 
 interface NaverLatLng {
@@ -44,6 +48,12 @@ interface NaverMapsNamespace {
   Marker: new (options: NaverMarkerOptions) => NaverMarkerInstance
   LatLng: new (latitude: number, longitude: number) => NaverLatLng
   Event: NaverMapsEventNamespace
+  Position: {
+    RIGHT_CENTER: number
+  }
+  ZoomControlStyle: {
+    SMALL: number
+  }
 }
 
 interface Window {

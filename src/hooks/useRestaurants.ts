@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  findOrCreateRestaurant,
-  loadRestaurants,
-} from '../lib/restaurants'
+import { loadRestaurants } from '../lib/restaurants'
 import type { Restaurant } from '../types/database'
-import type { RestaurantSearchResult } from '../types/naverSearch'
 
 type LoadStatus = 'loading' | 'success' | 'error'
 
@@ -18,11 +14,14 @@ export function useRestaurants() {
     setErrorMessage('')
 
     try {
-      setRestaurants(await loadRestaurants())
+      const loadedRestaurants = await loadRestaurants()
+      setRestaurants(loadedRestaurants)
       setStatus('success')
+      return loadedRestaurants
     } catch {
       setErrorMessage('저장된 장소를 불러오지 못했습니다.')
       setStatus('error')
+      throw new Error('저장된 장소를 불러오지 못했습니다.')
     }
   }, [])
 
@@ -46,27 +45,10 @@ export function useRestaurants() {
     }
   }, [])
 
-  const selectSearchResult = useCallback(
-    async (result: RestaurantSearchResult) => {
-      const restaurant = await findOrCreateRestaurant(result)
-      setRestaurants((current) => {
-        const exists = current.some((item) => item.id === restaurant.id)
-        return exists
-          ? current.map((item) =>
-              item.id === restaurant.id ? restaurant : item,
-            )
-          : [...current, restaurant]
-      })
-      return restaurant
-    },
-    [],
-  )
-
   return {
     restaurants,
     status,
     errorMessage,
     refresh,
-    selectSearchResult,
   }
 }

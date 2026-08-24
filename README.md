@@ -19,7 +19,7 @@ api/
   naver-search.ts          # Vercel Function entrypoint
   naver-search-core.ts     # validation, upstream call, normalization
 src/
-  components/              # auth shell, map, search, restaurant preview
+  components/              # auth shell, map, search, restaurant detail/review UI
   hooks/                   # auth, restaurant loading, marker lifecycle
   lib/                     # NAVER Maps, Supabase, auth/profile/data calls
   pages/                   # login, signup, map, MY
@@ -36,7 +36,8 @@ supabase/
 
 ```text
 회원가입/로그인 → nickname profile 확인 → 지도
-              → NAVER 음식점 검색 → 선택 → 지도 marker
+              → NAVER 음식점 검색 → 방문 기록 작성 → marker/detail
+              → 기존 marker 선택 → 리뷰 조회/작성/수정/삭제
 ```
 
 현재 MVP에서는 이메일 확인 없이 nickname, 이메일, 비밀번호, 비밀번호 확인만 입력하면 가입과 동시에 로그인됩니다. 이메일 확인이 필요해지면 Supabase Auth 설정과 가입 완료 UX를 함께 다시 활성화합니다. 사용자에게 profile이 없을 때만 nickname 설정 화면이 나타나며, MY에서 nickname 변경과 로그아웃을 할 수 있습니다. Session 확인이 끝나기 전에는 지도 route를 렌더링하지 않습니다.
@@ -86,14 +87,15 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - SDK를 한 번만 비동기 로드하는 helper와 서울권 초기 viewport
 - Client ID 누락, load timeout/failure, `window.naver` 초기화 실패 UI
 - idle/loading/success/empty/error를 처리하는 음식점 검색 UI
-- 결과 선택 시 유효한 WGS84 좌표의 restaurant를 선택하고 지도 이동
+- 결과의 `기록하기` 선택은 DB를 변경하지 않고 방문 기록 작성 UI만 표시
 - 좌표가 없는 결과를 선택할 때만 도로명 주소 우선 lazy Geocoding
 - `GET /api/naver-search?q=<query>`의 method, 공백, 100자 제한 검증
 - `GET /api/naver-geocode?address=<address>`의 method, 공백, 300자 제한 검증
 - 8초 upstream timeout, NAVER 4xx/5xx 및 비정상 JSON/shape의 안전한 오류 처리
 - raw upstream 오류와 credential을 반환하지 않는 normalized response
-- Supabase `restaurants` 전체 조회와 NAVER Map marker 표시
-- marker click/tap으로 restaurant preview 선택
+- 저장된 Supabase restaurant와 review aggregate를 한 번에 조회해 NAVER Map marker 표시
+- marker click/tap으로 공유 restaurant detail과 방문 기록 목록 표시
+- NAVER zoom control을 우측 중앙의 작은 control로 배치해 검색 UI와 분리
 - `ResizeObserver` 기반 map resize 처리
 
 공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps Geocoding](https://api.ncloud-docs.com/docs/application-maps-geocoding), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)
@@ -112,7 +114,9 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 
 Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 함께 지워지지 않게 합니다. Review 삭제 시에만 photo metadata가 cascade됩니다. NAVER Local Search에는 안정적인 place ID 필드가 없으므로 존재하지 않는 ID를 만들지 않고, source + 공백/대소문자를 정규화한 음식점명과 도로명(없으면 지번) 주소 조합으로 단순 중복을 막습니다. fuzzy matching은 하지 않습니다.
 
-검색 결과 선택은 `find_or_create_restaurant` security-invoker RPC를 사용합니다. 함수는 기존 RLS 권한으로 실행되며 normalized `source_key`를 먼저 찾고, 없을 때만 insert합니다. `(source, source_key)` unique constraint와 `ON CONFLICT`를 함께 사용하므로 동시에 같은 장소를 선택해도 하나의 restaurant를 재사용합니다. Service role은 사용하지 않습니다.
+검색 결과 선택 자체는 DB를 변경하지 않습니다. 사용자가 방문 기록을 제출할 때 `create_visit_review` security-invoker RPC가 기존 `find_or_create_restaurant`를 호출하고 review를 같은 transaction에서 생성합니다. review 생성이 실패하면 신규 restaurant도 남지 않습니다. `(source, source_key)` unique constraint와 `ON CONFLICT`를 그대로 사용하므로 같은 장소의 반복 방문은 restaurant 하나에 여러 review로 누적됩니다. Service role은 사용하지 않습니다.
+
+`list_restaurants_with_review_stats`는 restaurant 목록과 평균 평점/리뷰 수를 한 번에 반환해 marker별 N+1 조회를 피합니다. `list_restaurant_reviews`는 작성자 nickname과 사진 metadata를 함께 반환하며 방문일, 생성일 역순으로 정렬합니다. 평균 평점은 리뷰가 없을 때 `null`로 유지해 0점으로 오해되지 않게 합니다.
 
 ### RLS
 
@@ -123,16 +127,17 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 - Restaurant은 인증 사용자만 본인 `created_by`로 생성하며 수정/삭제 policy는 아직 없습니다.
 - Review는 `user_id = auth.uid()`인 작성자만 생성·수정·삭제합니다.
 - Photo metadata는 연결된 review 작성자만 생성·삭제합니다.
+- private `review-images` object는 인증 사용자가 읽고, 연결된 본인 review 경로에만 생성·삭제합니다.
 
 현재 MVP policy는 별도 승인 없이 “인증된 모든 사용자”가 서비스를 사용하는 범위입니다. 관리자 승인, allowlist, invitation workflow는 사용하지 않습니다.
 
 ## Responsive application shell
 
-- Mobile `< 768px`: 전체 지도, 상단 floating search, 선택 restaurant bottom sheet, 하단 `지도/MY` navigation
+- Mobile `< 768px`: 전체 지도, 상단 floating search, restaurant detail/review bottom sheet, 하단 `지도/MY` navigation
 - Tablet/Desktop `>= 768px`: 350px sidebar와 나머지 지도 영역
 - Wide desktop `>= 1200px`: 390px sidebar와 확장된 지도 영역
 
-동일한 search/selection/preview data를 화면 크기에 따라 배치만 바꾸며 모바일과 desktop용 앱을 따로 만들지 않습니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한됩니다.
+동일한 restaurant detail/review component를 화면 크기에 따라 배치만 바꾸며 모바일과 desktop용 앱을 따로 만들지 않습니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한됩니다. 작성 중 닫기/뒤로 가기에는 확인 절차가 있고, 저장 action은 sheet 하단에 고정됩니다.
 
 ## SQL migration workflow
 
@@ -151,24 +156,26 @@ Supabase CLI는 dev dependency로 고정되어 항상 `npx supabase ...`로 실�
 
 `supabase/seed.sql`은 현재 의도적으로 비어 있습니다. 실제 사용자나 개인 방문 데이터는 seed에 넣지 않습니다.
 
-## Storage 계획
+## Review 사진 Storage
 
-향후 private `review-images` bucket을 사용합니다.
+private `review-images` bucket을 사용합니다.
 
 ```text
 사용자 이미지 → browser resize/compression → Supabase Storage
-             → review_photos에 storage_path 저장
+             → review_photos에 storage_path/sort_order 저장
+             → 만료 1시간 signed URL로 표시
 ```
 
-Bucket과 Storage RLS policy는 upload 기능 milestone에서 migration으로 추가합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
+사진은 review당 최대 5장입니다. 브라우저에서 긴 변을 최대 1600px로 줄이고 WebP quality 0.82로 변환한 뒤 `<user_id>/<review_id>/<uuid>.webp`에 저장합니다. HEIC/HEIF와 브라우저가 해석하지 못하는 형식은 명시적으로 거절합니다. 이미지 binary는 PostgreSQL column에 저장하지 않습니다.
+
+사진 업로드는 핵심 방문 기록과 분리해 순차 처리합니다. 일부 사진이 실패하면 review와 이미 성공한 사진은 유지하고 사용자에게 부분 실패를 알립니다. Review 삭제 시 Storage object를 먼저 삭제한 뒤 photo metadata와 review를 삭제해 실제 object가 남지 않게 합니다.
 
 ## 현재 범위와 다음 milestone
 
-현재 이메일 Auth/session, nickname profile, NAVER restaurant 선택과 중복 방지 저장, DB marker, responsive map shell, MY/logout까지 구현되어 있습니다. 다음 milestone 방향은 다음과 같습니다.
+현재 이메일 Auth/session, nickname profile, NAVER 검색/Geocoding, transaction 기반 방문 기록, 공유 restaurant detail, review CRUD/aggregate, private 사진 업로드, responsive map shell, MY/logout까지 구현되어 있습니다. 다음 milestone 방향은 다음과 같습니다.
 
-1. Restaurant detail
-2. Review CRUD
-3. Average rating과 review count
-4. Private photo resize/upload
-5. Recent visit feed
-6. MY 방문 통계
+1. Recent visit feed와 pagination
+2. MY 방문 통계/내 기록 모아보기
+3. 사진 재정렬과 확대 viewer
+4. Storage cleanup 보강을 위한 서버 작업/재시도 queue
+5. 필요 시 Supabase Realtime 갱신
