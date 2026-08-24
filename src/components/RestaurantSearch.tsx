@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { RestaurantSelectionError } from '../lib/restaurants'
 import type {
   RestaurantSearchResponse,
   RestaurantSearchResult,
@@ -84,16 +85,6 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
   }
 
   async function handleSelect(item: RestaurantSearchResult, key: string) {
-    if (
-      item.latitude === null ||
-      item.longitude === null ||
-      (!item.roadAddress && !item.address)
-    ) {
-      setMessage('이 장소는 위치 정보가 부족해 지도에 표시할 수 없습니다.')
-      setMessageKind('error')
-      return
-    }
-
     setPendingResultKey(key)
     setMessage('')
 
@@ -101,8 +92,12 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
       await onSelect(item)
       setMessage(`${item.title}을(를) 지도에 표시했어요.`)
       setMessageKind('success')
-    } catch {
-      setMessage('장소를 지도에 표시하지 못했습니다. 다시 시도해 주세요.')
+    } catch (error) {
+      setMessage(
+        error instanceof RestaurantSelectionError
+          ? error.message
+          : '장소를 지도에 표시하지 못했습니다. 다시 시도해 주세요.',
+      )
       setMessageKind('error')
     } finally {
       setPendingResultKey(null)

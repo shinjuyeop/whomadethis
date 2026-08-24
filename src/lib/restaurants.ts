@@ -1,4 +1,5 @@
 import type { RestaurantSearchResult } from '../types/naverSearch'
+import type { GeocodeResponse } from '../types/naverGeocode'
 import type { Restaurant } from '../types/database'
 import { getSupabaseClient } from './supabase'
 
@@ -19,6 +20,68 @@ interface RestaurantRow {
 
 const RESTAURANT_COLUMNS =
   'id,name,category,address,road_address,latitude,longitude,naver_link,source,source_key,created_by,created_at'
+const LOCATION_NOT_FOUND_MESSAGE = '이 장소의 위치를 확인하지 못했습니다.'
+
+export class RestaurantSelectionError extends Error {}
+
+function isGeocodeResponse(value: unknown): value is GeocodeResponse {
+  if (typeof value !== 'object' || value === null) return false
+
+  const latitude = Reflect.get(value, 'latitude')
+  const longitude = Reflect.get(value, 'longitude')
+  return (
+    typeof latitude === 'number' &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    typeof longitude === 'number' &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180
+  )
+}
+
+async function geocodeAddress(address: string): Promise<GeocodeResponse> {
+  try {
+    const response = await fetch(
+      `/api/naver-geocode?address=${encodeURIComponent(address)}`,
+    )
+    let body: unknown
+
+    try {
+      body = await response.json()
+    } catch {
+      throw new RestaurantSelectionError(LOCATION_NOT_FOUND_MESSAGE)
+    }
+
+    if (!response.ok || !isGeocodeResponse(body)) {
+      throw new RestaurantSelectionError(LOCATION_NOT_FOUND_MESSAGE)
+    }
+
+    return body
+  } catch (error) {
+    if (error instanceof RestaurantSelectionError) throw error
+    throw new RestaurantSelectionError(LOCATION_NOT_FOUND_MESSAGE)
+  }
+}
+
+async function resolveCoordinates(
+  result: RestaurantSearchResult,
+): Promise<GeocodeResponse> {
+  if (result.latitude !== null && result.longitude !== null) {
+    return {
+      latitude: result.latitude,
+      longitude: result.longitude,
+    }
+  }
+
+  const address = result.roadAddress || result.address
+  if (!address) {
+    throw new RestaurantSelectionError(LOCATION_NOT_FOUND_MESSAGE)
+  }
+
+  return geocodeAddress(address)
+}
 
 function toRestaurant(row: RestaurantRow): Restaurant {
   return {
@@ -53,13 +116,11 @@ export async function loadRestaurants(): Promise<Restaurant[]> {
 export async function findOrCreateRestaurant(
   result: RestaurantSearchResult,
 ): Promise<Restaurant> {
-  if (
-    result.latitude === null ||
-    result.longitude === null ||
-    (!result.roadAddress && !result.address)
-  ) {
-    throw new Error('이 장소는 위치 정보가 부족해 지도에 표시할 수 없습니다.')
+  if (!result.roadAddress && !result.address) {
+    throw new RestaurantSelectionError(LOCATION_NOT_FOUND_MESSAGE)
   }
+
+  const coordinates = await resolveCoordinates(result)
 
   const { data, error } = await getSupabaseClient()
     .rpc('find_or_create_restaurant', {
@@ -67,8 +128,8 @@ export async function findOrCreateRestaurant(
       p_category: result.category,
       p_address: result.address,
       p_road_address: result.roadAddress,
-      p_latitude: result.latitude,
-      p_longitude: result.longitude,
+      p_latitude: coordinates.latitude,
+      p_longitude: coordinates.longitude,
       p_naver_link: result.link,
     })
     .select(RESTAURANT_COLUMNS)

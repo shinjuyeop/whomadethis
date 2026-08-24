@@ -14,6 +14,8 @@
 
 ```text
 api/
+  naver-geocode.ts         # Vercel Function entrypoint
+  naver-geocode-core.ts    # address validation, upstream call, normalization
   naver-search.ts          # Vercel Function entrypoint
   naver-search-core.ts     # validation, upstream call, normalization
 src/
@@ -28,7 +30,7 @@ supabase/
   seed.sql                 # synthetic local seed template
 ```
 
-브라우저는 NAVER API HUB를 직접 호출하지 않습니다. `/api/naver-search`가 서버 전용 credential을 사용해 upstream을 호출하고 HTML 제거, 응답 검증, WGS84 좌표 정규화를 수행한 뒤 최소 application type만 반환합니다. `mapx`는 `longitude`, `mapy`는 `latitude`로 변환합니다.
+브라우저는 NAVER API HUB와 Maps Geocoding API를 직접 호출하지 않습니다. `/api/naver-search`가 서버 전용 credential을 사용해 upstream을 호출하고 HTML 제거, 응답 검증, WGS84 좌표 정규화를 수행한 뒤 최소 application type만 반환합니다. `mapx`는 `longitude`, `mapy`는 `latitude`로 변환합니다. 검색 결과에 좌표가 없으면 사용자가 그 결과를 선택한 시점에만 `/api/naver-geocode`가 도로명 주소(없으면 지번 주소)를 WGS84 좌표로 변환합니다.
 
 ## 사용자 흐름
 
@@ -51,7 +53,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-이미 실제 값이 있는 `.env.local`을 placeholder로 덮어쓰지 마세요. `npm run dev`는 Vite UI와 안전한 Node-side `/api/naver-search` middleware를 함께 실행합니다. middleware와 production Vercel Function은 동일한 `naver-search-core.ts`를 사용합니다. `NAVER_API_HUB_CLIENT_SECRET`은 Vite의 Node 설정 프로세스에서만 읽고 `import.meta.env` 또는 browser bundle로 전달하지 않습니다.
+이미 실제 값이 있는 `.env.local`을 placeholder로 덮어쓰지 마세요. `npm run dev`는 Vite UI와 안전한 Node-side `/api/naver-search`, `/api/naver-geocode` middleware를 함께 실행합니다. middleware와 production Vercel Function은 각각 동일한 core module을 사용합니다. `NAVER_API_HUB_CLIENT_SECRET`과 `NAVER_MAP_CLIENT_SECRET`은 Vite의 Node 설정 프로세스에서만 읽고 `import.meta.env` 또는 browser bundle로 전달하지 않습니다.
 
 ### npm commands
 
@@ -68,12 +70,14 @@ npm run preview    # built frontend preview (Vercel API는 포함하지 않음)
 | 변수 | 위치 | 용도 |
 | --- | --- | --- |
 | `VITE_NAVER_MAP_CLIENT_ID` | browser | NAVER Maps Dynamic Map SDK |
+| `NAVER_MAP_CLIENT_ID` | server only | Maps Geocoding API 인증 |
+| `NAVER_MAP_CLIENT_SECRET` | server only | Maps Geocoding API 인증 |
 | `NAVER_API_HUB_CLIENT_ID` | server only | Local Search API 인증 |
 | `NAVER_API_HUB_CLIENT_SECRET` | server only | Local Search API 인증 |
 | `VITE_SUPABASE_URL` | browser | Supabase project URL |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | browser | RLS로 보호되는 publishable key |
 
-NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK는 browser-visible Client ID를 사용하지만 API HUB Client Secret은 항상 server proxy에만 둡니다. NAVER API HUB 변수에는 절대 `VITE_` prefix를 붙이지 않습니다.
+NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK는 browser-visible Client ID를 사용하지만 Geocoding과 API HUB Client Secret은 항상 server proxy에만 둡니다. server-only 변수에는 절대 `VITE_` prefix를 붙이지 않습니다.
 
 `VITE_` 변수는 browser bundle에 포함될 수 있습니다. 따라서 Supabase browser client에는 URL과 publishable key만 사용하고 `service_role`, `sb_secret`, database password, access token을 넣지 않습니다. `.env.local`과 `.env.*`는 Git에서 제외하며 `.env.example`만 빈 template으로 commit합니다.
 
@@ -83,14 +87,16 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - Client ID 누락, load timeout/failure, `window.naver` 초기화 실패 UI
 - idle/loading/success/empty/error를 처리하는 음식점 검색 UI
 - 결과 선택 시 유효한 WGS84 좌표의 restaurant를 선택하고 지도 이동
+- 좌표가 없는 결과를 선택할 때만 도로명 주소 우선 lazy Geocoding
 - `GET /api/naver-search?q=<query>`의 method, 공백, 100자 제한 검증
+- `GET /api/naver-geocode?address=<address>`의 method, 공백, 300자 제한 검증
 - 8초 upstream timeout, NAVER 4xx/5xx 및 비정상 JSON/shape의 안전한 오류 처리
 - raw upstream 오류와 credential을 반환하지 않는 normalized response
 - Supabase `restaurants` 전체 조회와 NAVER Map marker 표시
 - marker click/tap으로 restaurant preview 선택
 - `ResizeObserver` 기반 map resize 처리
 
-공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)
+공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps Geocoding](https://api.ncloud-docs.com/docs/application-maps-geocoding), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)
 
 ## Supabase client와 database
 
