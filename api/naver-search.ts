@@ -1,4 +1,4 @@
-import { executeNaverSearch } from './naver-search-core.ts'
+import { executeNaverSearch } from './naver-search-core.js'
 
 interface VercelRequest {
   method?: string

@@ -1,7 +1,7 @@
 import type {
   RestaurantSearchResponse,
   RestaurantSearchResult,
-} from '../src/types/naverSearch.ts'
+} from '../src/types/naverSearch.js'
 
 const NAVER_LOCAL_SEARCH_URL =
   'https://naverapihub.apigw.ntruss.com/search/v1/local'

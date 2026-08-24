@@ -8,6 +8,27 @@ interface RestaurantSearchProps {
   onSelect: (restaurant: RestaurantSearchResult) => void
 }
 
+const SEARCH_UNAVAILABLE_MESSAGE =
+  '검색 서비스를 일시적으로 사용할 수 없습니다.'
+
+class SearchRequestError extends Error {}
+
+function getServerErrorMessage(body: unknown): string | null {
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('error' in body) ||
+    typeof body.error !== 'object' ||
+    body.error === null ||
+    !('message' in body.error) ||
+    typeof body.error.message !== 'string'
+  ) {
+    return null
+  }
+
+  return body.error.message.trim() || null
+}
+
 export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<RestaurantSearchResponse | null>(null)
@@ -31,18 +52,27 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
       const response = await fetch(
         `/api/naver-search?q=${encodeURIComponent(trimmedQuery)}`,
       )
-      const body: unknown = await response.json()
+      let body: unknown
+
+      try {
+        body = await response.json()
+      } catch {
+        throw new SearchRequestError(SEARCH_UNAVAILABLE_MESSAGE)
+      }
 
       if (!response.ok) {
-        const errorBody = body as { error?: { message?: string } }
-        throw new Error(errorBody.error?.message ?? '검색 요청에 실패했습니다.')
+        throw new SearchRequestError(
+          getServerErrorMessage(body) ?? SEARCH_UNAVAILABLE_MESSAGE,
+        )
       }
 
       setResult(body as RestaurantSearchResponse)
     } catch (error) {
       setResult(null)
       setMessage(
-        error instanceof Error ? error.message : '검색 중 오류가 발생했습니다.',
+        error instanceof SearchRequestError
+          ? error.message
+          : SEARCH_UNAVAILABLE_MESSAGE,
       )
     } finally {
       setIsLoading(false)

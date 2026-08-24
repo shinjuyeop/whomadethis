@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { executeNaverSearch } from './api/naver-search-core.ts'
+import { executeNaverSearch } from './api/naver-search-core.js'
 
 function localSearchApi(credentials: {
   clientId?: string
