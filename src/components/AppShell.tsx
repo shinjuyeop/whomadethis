@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import type { Profile } from '../types/database'
+import { AppIcon } from './AppIcon'
 
 interface AppShellProps extends PropsWithChildren {
   profile: Profile
@@ -21,8 +22,11 @@ export function AppShell({ profile, children }: AppShellProps) {
           <NavLink className={navigationClass} to="/" end>
             지도
           </NavLink>
-          <NavLink className={navigationClass} to="/my">
-            {profile.nickname}
+          <NavLink className={navigationClass} to="/feed">
+            피드
+          </NavLink>
+          <NavLink className={navigationClass} to="/my" aria-label={`${profile.nickname} MY`}>
+            MY
           </NavLink>
         </nav>
       </header>
@@ -31,11 +35,15 @@ export function AppShell({ profile, children }: AppShellProps) {
 
       <nav className="mobile-nav" aria-label="주요 메뉴">
         <NavLink className={navigationClass} to="/" end>
-          <span aria-hidden="true">⌖</span>
+          <AppIcon name="map" />
           지도
         </NavLink>
+        <NavLink className={navigationClass} to="/feed">
+          <AppIcon name="feed" />
+          피드
+        </NavLink>
         <NavLink className={navigationClass} to="/my">
-          <span aria-hidden="true">○</span>
+          <AppIcon name="user" />
           MY
         </NavLink>
       </nav>

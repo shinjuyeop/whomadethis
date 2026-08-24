@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadRestaurants } from '../lib/restaurants'
 import type { Restaurant } from '../types/database'
+import { useRealtime } from './useRealtime'
 
 type LoadStatus = 'loading' | 'success' | 'error'
 
 export function useRestaurants() {
+  const { revision } = useRealtime()
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [errorMessage, setErrorMessage] = useState('')
@@ -43,7 +45,7 @@ export function useRestaurants() {
     return () => {
       active = false
     }
-  }, [])
+  }, [revision])
 
   return {
     restaurants,

@@ -2,6 +2,7 @@ import type { RestaurantSearchResult } from '../types/naverSearch'
 import type { GeocodeResponse } from '../types/naverGeocode'
 import type { Restaurant } from '../types/database'
 import { getSupabaseClient } from './supabase'
+import { createSignedReviewImageUrls } from './reviewImages'
 
 interface RestaurantRow {
   id: string
@@ -18,6 +19,7 @@ interface RestaurantRow {
   created_at: string
   average_rating: number | null
   review_count: number
+  cover_photo_path: string | null
 }
 
 const LOCATION_NOT_FOUND_MESSAGE = '이 장소의 위치를 확인하지 못했습니다.'
@@ -83,7 +85,10 @@ export async function resolveRestaurantCoordinates(
   return geocodeAddress(address)
 }
 
-function toRestaurant(row: RestaurantRow): Restaurant {
+function toRestaurant(
+  row: RestaurantRow,
+  signedUrls: Map<string, string>,
+): Restaurant {
   return {
     id: row.id,
     name: row.name,
@@ -100,6 +105,20 @@ function toRestaurant(row: RestaurantRow): Restaurant {
     averageRating:
       row.average_rating === null ? null : Number(row.average_rating),
     reviewCount: Number(row.review_count),
+    coverPhotoUrl: row.cover_photo_path
+      ? signedUrls.get(row.cover_photo_path) ?? null
+      : null,
+  }
+}
+
+async function signedCoverUrls(rows: RestaurantRow[]) {
+  const paths = rows.flatMap((row) =>
+    row.cover_photo_path ? [row.cover_photo_path] : [],
+  )
+  try {
+    return await createSignedReviewImageUrls(paths)
+  } catch {
+    return new Map<string, string>()
   }
 }
 
@@ -112,5 +131,26 @@ export async function loadRestaurants(): Promise<Restaurant[]> {
     throw new Error('음식점 목록을 불러오지 못했습니다.')
   }
 
-  return ((data ?? []) as RestaurantRow[]).map(toRestaurant)
+  const rows = (data ?? []) as RestaurantRow[]
+  const signedUrls = await signedCoverUrls(rows)
+  return rows.map((row) => toRestaurant(row, signedUrls))
+}
+
+export async function loadRestaurant(
+  restaurantId: string,
+): Promise<Restaurant | null> {
+  const { data, error } = await getSupabaseClient()
+    .rpc('get_restaurant_with_review_stats', {
+      p_restaurant_id: restaurantId,
+    })
+    .maybeSingle()
+
+  if (error) {
+    throw new Error('음식점 정보를 불러오지 못했습니다.')
+  }
+  if (!data) return null
+
+  const row = data as RestaurantRow
+  const signedUrls = await signedCoverUrls([row])
+  return toRestaurant(row, signedUrls)
 }

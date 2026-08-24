@@ -19,6 +19,7 @@ export interface Restaurant {
   createdAt: string
   averageRating: number | null
   reviewCount: number
+  coverPhotoUrl: string | null
 }
 
 export interface ReviewPhoto {
@@ -40,4 +41,23 @@ export interface Review {
   createdAt: string
   updatedAt: string
   photos: ReviewPhoto[]
+}
+
+export interface ReviewRestaurant {
+  id: string
+  name: string
+  category: string | null
+  address: string | null
+  roadAddress: string | null
+}
+
+export interface ActivityReview extends Review {
+  restaurant: ReviewRestaurant
+}
+
+export interface MyReviewStats {
+  visitedRestaurantCount: number
+  reviewCount: number
+  photoCount: number
+  averageRating: number | null
 }

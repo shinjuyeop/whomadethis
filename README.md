@@ -1,13 +1,13 @@
 # whomadethis
 
-친구들이 함께 방문한 음식점을 전국 지도에 기록하고 사진, 별점, 리뷰를 누적해 공유하는 웹앱입니다. 이메일로 로그인한 사용자는 NAVER에서 음식점을 찾아 지도에 추가하고, 친구들이 함께 저장한 장소를 marker로 확인할 수 있습니다.
+친구들이 실제 방문한 음식점을 지도에 남기고 별점, 후기, 방문일, 사진을 함께 공유하는 웹앱입니다. 지도 탐색, 음식점별 누적 기록, 최근 Feed, 개인 방문 통계를 하나의 실시간 MVP로 제공합니다.
 
 ## 목표와 기술 스택
 
 - React 19, Vite, TypeScript, React Router
 - NAVER Maps JavaScript API v3
 - NAVER API HUB Local Search와 Vercel-compatible server function
-- Supabase Auth, Postgres, Row Level Security, Storage를 위한 client/CLI 기반
+- Supabase Auth, Postgres, Row Level Security, Storage, Realtime
 - SQL migration을 canonical source로 사용하는 database workflow
 
 ## 구조
@@ -19,10 +19,10 @@ api/
   naver-search.ts          # Vercel Function entrypoint
   naver-search-core.ts     # validation, upstream call, normalization
 src/
-  components/              # auth shell, map, search, restaurant detail/review UI
-  hooks/                   # auth, restaurant loading, marker lifecycle
+  components/              # app shell, map/search, detail/review, Realtime UI
+  hooks/                   # auth, Feed/MY data, Realtime, marker lifecycle
   lib/                     # NAVER Maps, Supabase, auth/profile/data calls
-  pages/                   # login, signup, map, MY
+  pages/                   # login, signup, map, Feed, restaurant detail, MY
   types/                   # app-facing API and SDK types
 supabase/
   config.toml              # local Supabase configuration
@@ -37,12 +37,23 @@ supabase/
 ```text
 회원가입/로그인 → nickname profile 확인 → 지도
               → NAVER 음식점 검색 → 방문 기록 작성 → marker/detail
-              → 기존 marker 선택 → 리뷰 조회/작성/수정/삭제
+              → Feed에서 친구의 최신 기록 확인
+              → MY에서 내 통계와 방문 기록 확인
 ```
 
 현재 MVP에서는 이메일 확인 없이 nickname, 이메일, 비밀번호, 비밀번호 확인만 입력하면 가입과 동시에 로그인됩니다. 이메일 확인이 필요해지면 Supabase Auth 설정과 가입 완료 UX를 함께 다시 활성화합니다. 사용자에게 profile이 없을 때만 nickname 설정 화면이 나타나며, MY에서 nickname 변경과 로그아웃을 할 수 있습니다. Session 확인이 끝나기 전에는 지도 route를 렌더링하지 않습니다.
 
-`vercel.json`은 `/login`, `/signup`, `/my` 직접 접근을 SPA entry로 rewrite합니다. `/api/naver-search` function route는 rewrite 대상에 포함하지 않습니다.
+`vercel.json`은 `/login`, `/signup`, `/feed`, `/my`, `/restaurants/:id` 직접 접근을 SPA entry로 rewrite합니다. `/api/naver-search`와 `/api/naver-geocode` function route는 rewrite 대상에 포함하지 않습니다.
+
+## Routes
+
+| 경로 | 역할 |
+| --- | --- |
+| `/` | NAVER Map, 음식점 검색, marker와 restaurant preview/sidebar |
+| `/feed` | 모든 인증 사용자의 최근 방문 기록, 20개 단위 더 보기 |
+| `/restaurants/:id` | 음식점 정보, 평균/리뷰 수, 사진과 방문 기록 CRUD |
+| `/my` | 닉네임, 내 통계, 내 최근 방문 기록, 로그아웃 |
+| `/login`, `/signup` | 이메일/비밀번호 Auth와 nickname 가입 |
 
 ## 로컬 설정
 
@@ -95,7 +106,7 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - raw upstream 오류와 credential을 반환하지 않는 normalized response
 - 저장된 Supabase restaurant와 review aggregate를 한 번에 조회해 NAVER Map marker 표시
 - marker click/tap으로 공유 restaurant detail과 방문 기록 목록 표시
-- NAVER zoom control을 우측 중앙의 작은 control로 배치하고 모바일 전용 gutter/detail 표시 제어로 검색·bottom sheet와 분리
+- NAVER 기본 zoom control은 표시하지 않고 desktop wheel/trackpad와 mobile pinch/touch의 native 지도 gesture를 유지
 - `ResizeObserver` 기반 map resize 처리
 
 공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps Geocoding](https://api.ncloud-docs.com/docs/application-maps-geocoding), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)
@@ -116,7 +127,16 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 
 검색 결과 선택 자체는 DB를 변경하지 않습니다. 사용자가 방문 기록을 제출할 때 `create_visit_review` security-invoker RPC가 기존 `find_or_create_restaurant`를 호출하고 review를 같은 transaction에서 생성합니다. review 생성이 실패하면 신규 restaurant도 남지 않습니다. `(source, source_key)` unique constraint와 `ON CONFLICT`를 그대로 사용하므로 같은 장소의 반복 방문은 restaurant 하나에 여러 review로 누적됩니다. Service role은 사용하지 않습니다.
 
-`list_restaurants_with_review_stats`는 restaurant 목록과 평균 평점/리뷰 수를 한 번에 반환해 marker별 N+1 조회를 피합니다. `list_restaurant_reviews`는 작성자 nickname과 사진 metadata를 함께 반환하며 방문일, 생성일 역순으로 정렬합니다. 평균 평점은 리뷰가 없을 때 `null`로 유지해 0점으로 오해되지 않게 합니다.
+`list_restaurants_with_review_stats`는 restaurant 목록, 평균 평점, 리뷰 수, 대표 사진 경로를 한 번에 반환해 marker별 N+1 조회를 피합니다. `list_restaurant_reviews`는 작성자 nickname과 사진 metadata를 함께 반환합니다. `list_recent_reviews`와 `list_my_reviews`는 profile, restaurant, photo를 관계 조회한 뒤 `created_at DESC`로 20개씩 반환합니다. `get_my_review_stats`는 distinct 음식점, review, photo, 평균 별점을 정확히 집계합니다. 평균 평점은 리뷰가 없을 때 `null`로 유지합니다.
+
+## Feed, MY, Realtime
+
+- Feed는 사진이 없는 기록을 compact text로, 사진이 있는 기록을 가로 사진 영역으로 표시합니다.
+- MY는 다녀온 곳, 방문 기록, 사진, 평균 별점과 본인의 최근 기록을 한 화면에 표시합니다.
+- 인증 세션당 `RealtimeProvider` 채널 하나가 `restaurants`, `reviews`, `review_photos`, `profiles` 변경을 구독합니다.
+- 짧은 시간에 연속된 이벤트를 하나로 묶고, 화면 데이터는 ID 기준 페이지 결과로 교체/병합합니다.
+- review 변경 시 클라이언트 delta 계산 대신 aggregate RPC를 재조회해 Map, Detail, Feed, MY 값을 일치시킵니다.
+- channel은 shell unmount 시 명시적으로 제거해 중복 subscription과 remount leak을 방지합니다.
 
 ### RLS
 
@@ -133,11 +153,11 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 
 ## Responsive application shell
 
-- Mobile `< 768px`: 전체 지도, 상단 floating search, restaurant detail/review bottom sheet, 하단 `지도/MY` navigation
+- Mobile `< 768px`: 전체 지도, 상단 floating search, compact restaurant preview, 상세 route/review sheet, 하단 `지도/피드/MY` navigation
 - Tablet/Desktop `>= 768px`: 350px sidebar와 나머지 지도 영역
 - Wide desktop `>= 1200px`: 390px sidebar와 확장된 지도 영역
 
-동일한 restaurant detail/review component를 화면 크기에 따라 배치만 바꾸며 모바일과 desktop용 앱을 따로 만들지 않습니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한됩니다. 작성 중 닫기/뒤로 가기에는 확인 절차가 있고, 저장 action은 sheet 하단에 고정됩니다.
+Desktop 지도는 350~390px sidebar와 남은 지도 공간을 사용합니다. Feed와 MY는 ultra-wide에서도 읽기 좋은 최대 폭을 유지합니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한하고, 작성 중 닫기에는 확인 절차를 둡니다.
 
 ## SQL migration workflow
 
@@ -170,12 +190,13 @@ private `review-images` bucket을 사용합니다.
 
 사진 업로드는 핵심 방문 기록과 분리해 순차 처리합니다. 일부 사진이 실패하면 review와 이미 성공한 사진은 유지하고 사용자에게 부분 실패를 알립니다. Review 삭제 시 Storage object를 먼저 삭제한 뒤 photo metadata와 review를 삭제해 실제 object가 남지 않게 합니다.
 
-## 현재 범위와 다음 milestone
+## Production과 향후 선택 기능
 
-현재 이메일 Auth/session, nickname profile, NAVER 검색/Geocoding, transaction 기반 방문 기록, 공유 restaurant detail, review CRUD/aggregate, private 사진 업로드, responsive map shell, MY/logout까지 구현되어 있습니다. 다음 milestone 방향은 다음과 같습니다.
+Production: [https://whomadethis-xi.vercel.app](https://whomadethis-xi.vercel.app)
 
-1. Recent visit feed와 pagination
-2. MY 방문 통계/내 기록 모아보기
-3. 사진 재정렬과 확대 viewer
-4. Storage cleanup 보강을 위한 서버 작업/재시도 queue
-5. 필요 시 Supabase Realtime 갱신
+현재 Auth/session, NAVER 검색/Geocoding, 지도 marker, transaction 기반 방문 기록, 공유 detail, review/photo CRUD, Feed pagination, MY 통계/기록, Realtime, responsive app shell까지 구현되어 있습니다. 다음 항목은 MVP 이후의 선택 기능입니다.
+
+1. 현재 위치로 지도 이동
+2. 사진 순서 재정렬과 앱 내부 확대 viewer
+3. Storage cleanup 보강을 위한 서버 재시도 작업
+4. 사용자 수 증가 시 Broadcast 기반 Realtime 확장

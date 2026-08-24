@@ -6,6 +6,7 @@ import type { Profile } from '../types/database'
 import { AppShell } from './AppShell'
 import { FullScreenState } from './FullScreenState'
 import { ProfileSetup } from './ProfileSetup'
+import { RealtimeProvider } from './RealtimeProvider'
 
 export interface AuthenticatedOutletContext {
   profile: Profile
@@ -137,8 +138,10 @@ export function AuthenticatedApp() {
   }
 
   return (
-    <AppShell profile={profile}>
-      <Outlet context={{ profile, updateProfile }} />
-    </AppShell>
+    <RealtimeProvider userId={profile.id}>
+      <AppShell profile={profile}>
+        <Outlet context={{ profile, updateProfile }} />
+      </AppShell>
+    </RealtimeProvider>
   )
 }

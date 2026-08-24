@@ -3,6 +3,7 @@ import type {
   RestaurantSearchResponse,
   RestaurantSearchResult,
 } from '../types/naverSearch'
+import { AppIcon } from './AppIcon'
 
 interface RestaurantSearchProps {
   onSelect: (restaurant: RestaurantSearchResult) => void
@@ -100,12 +101,12 @@ export function RestaurantSearch({ onSelect }: RestaurantSearchProps) {
           id="restaurant-query"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="음식점 이름이나 지역 검색"
+          placeholder="음식점 이름 검색"
           autoComplete="off"
           maxLength={100}
         />
         <button type="submit" disabled={isLoading} aria-label="음식점 검색">
-          {isLoading ? '…' : '검색'}
+          {isLoading ? <span aria-hidden="true">…</span> : <AppIcon name="search" />}
         </button>
       </form>
 

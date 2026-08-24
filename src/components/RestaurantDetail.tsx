@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { deleteReview, loadRestaurantReviews } from '../lib/reviews'
 import type { Restaurant, Review } from '../types/database'
+import { useRealtime } from '../hooks/useRealtime'
 
 interface RestaurantDetailProps {
   restaurant: Restaurant
@@ -12,6 +13,7 @@ interface RestaurantDetailProps {
   onAddReview: () => void
   onEditReview: (review: Review) => void
   onReviewsChanged: () => Promise<void>
+  showClose?: boolean
 }
 
 type DetailStatus = 'loading' | 'ready' | 'error'
@@ -31,7 +33,9 @@ export function RestaurantDetail({
   onAddReview,
   onEditReview,
   onReviewsChanged,
+  showClose = true,
 }: RestaurantDetailProps) {
+  const { revision } = useRealtime()
   const [reviews, setReviews] = useState<Review[]>([])
   const [status, setStatus] = useState<DetailStatus>('loading')
   const [message, setMessage] = useState('')
@@ -67,7 +71,7 @@ export function RestaurantDetail({
     return () => {
       active = false
     }
-  }, [refreshKey, reloadKey, restaurant.id])
+  }, [refreshKey, reloadKey, restaurant.id, revision])
 
   async function handleDelete(review: Review) {
     if (!window.confirm('이 방문 기록과 사진을 삭제할까요?')) return
@@ -105,14 +109,16 @@ export function RestaurantDetail({
             {restaurant.roadAddress || restaurant.address || '주소 정보 없음'}
           </address>
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onClose}
-          aria-label="음식점 상세 닫기"
-        >
-          ×
-        </button>
+        {showClose && (
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="음식점 상세 닫기"
+          >
+            ×
+          </button>
+        )}
       </header>
 
       <div className="restaurant-rating-summary">{ratingSummary}</div>
@@ -142,7 +148,7 @@ export function RestaurantDetail({
           </div>
         )}
         {status === 'ready' && reviews.length === 0 && (
-          <p className="detail-state">아직 방문 기록이 없어요.</p>
+          <p className="detail-state">아직 이곳에 기록이 없어요. 첫 기록을 남겨보세요.</p>
         )}
         {status === 'ready' && reviews.length > 0 && (
           <ul className="review-list">
