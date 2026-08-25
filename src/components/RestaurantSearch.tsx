@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { hasMeaningfulViewportChange } from '../lib/mapDistance'
 import {
   SearchRequestError,
@@ -14,7 +14,8 @@ import { AppIcon } from './AppIcon'
 
 interface RestaurantSearchProps {
   viewport: MapViewport | null
-  onSelect: (restaurant: RestaurantSearchResult) => void | Promise<void>
+  onLocate: (restaurant: RestaurantSearchResult) => void | Promise<void>
+  onReview: (restaurant: RestaurantSearchResult) => void | Promise<void>
   onResultsVisibilityChange: (visible: boolean) => void
 }
 
@@ -23,9 +24,11 @@ const SEARCH_UNAVAILABLE_MESSAGE =
 
 export function RestaurantSearch({
   viewport,
-  onSelect,
+  onLocate,
+  onReview,
   onResultsVisibilityChange,
 }: RestaurantSearchProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [result, setResult] = useState<RestaurantSearchResponse | null>(null)
@@ -47,13 +50,15 @@ export function RestaurantSearch({
   const canSearchCurrentArea = Boolean(
     result &&
       viewport &&
-      searchAnchor &&
       query.trim() === submittedQuery &&
-      hasMeaningfulViewportChange(searchAnchor, viewport),
+      (searchMode === 'general' ||
+        (searchAnchor &&
+          hasMeaningfulViewportChange(searchAnchor, viewport))),
   )
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    inputRef.current?.blur()
     const trimmedQuery = query.trim()
 
     if (!trimmedQuery) {
@@ -109,9 +114,14 @@ export function RestaurantSearch({
     }
   }
 
-  function handleSelect(item: RestaurantSearchResult) {
+  function handleLocate(item: RestaurantSearchResult) {
     setMessage('')
-    void onSelect(item)
+    void onLocate(item)
+  }
+
+  function handleReview(item: RestaurantSearchResult) {
+    setMessage('')
+    void onReview(item)
   }
 
   return (
@@ -125,6 +135,7 @@ export function RestaurantSearch({
             음식점 또는 지역 검색
           </label>
           <input
+            ref={inputRef}
             id="restaurant-query"
             value={query}
             onChange={(event) => {
@@ -180,8 +191,10 @@ export function RestaurantSearch({
                     return (
                       <li key={key}>
                         <button
+                          className="search-result-location"
                           type="button"
-                          onClick={() => handleSelect(item)}
+                          aria-label={`${item.title} 위치 보기`}
+                          onClick={() => handleLocate(item)}
                         >
                           <span className="search-result-copy">
                             <strong>{item.title}</strong>
@@ -192,9 +205,14 @@ export function RestaurantSearch({
                             </span>
                             <small>{item.category || '음식점'}</small>
                           </span>
-                          <span className="search-result-action">
-                            후기 남기기
-                          </span>
+                        </button>
+                        <button
+                          className="search-result-review"
+                          type="button"
+                          aria-label={`${item.title} 후기 남기기`}
+                          onClick={() => handleReview(item)}
+                        >
+                          후기 남기기
                         </button>
                       </li>
                     )

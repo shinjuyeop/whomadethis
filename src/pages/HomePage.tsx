@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import type { AuthenticatedOutletContext } from '../components/AuthenticatedApp'
 import { AppIcon } from '../components/AppIcon'
@@ -18,10 +18,17 @@ import {
 } from '../hooks/useReviewWorkflow'
 import { useRestaurants } from '../hooks/useRestaurants'
 import { normalizeRestaurantIdentity } from '../lib/naverSearch'
+import {
+  RestaurantSelectionError,
+  resolveRestaurantCoordinates,
+} from '../lib/restaurants'
 import { loadRestaurantReviews } from '../lib/reviews'
 import type { Restaurant } from '../types/database'
 import type { MapViewport } from '../types/map'
-import type { RestaurantSearchResult } from '../types/naverSearch'
+import type {
+  LocatedRestaurantSearchResult,
+  RestaurantSearchResult,
+} from '../types/naverSearch'
 
 export function HomePage() {
   const { profile } = useOutletContext<AuthenticatedOutletContext>()
@@ -29,6 +36,9 @@ export function HomePage() {
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(
     null,
   )
+  const [selectedSearchResult, setSelectedSearchResult] =
+    useState<LocatedRestaurantSearchResult | null>(null)
+  const searchLocationRequestRef = useRef(0)
   const [detailRefreshKey, setDetailRefreshKey] = useState(0)
   const [searchResetKey, setSearchResetKey] = useState(0)
   const [viewport, setViewport] = useState<MapViewport | null>(null)
@@ -50,18 +60,23 @@ export function HomePage() {
         nextMessage += ' 지도 정보는 잠시 후 다시 확인해 주세요.'
       }
       setSelectedRestaurantId(restaurantId)
+      setSelectedSearchResult(null)
       setDetailRefreshKey((key) => key + 1)
       setNotice(nextMessage)
     },
   })
 
   const handleMarkerSelect = useCallback((restaurant: Restaurant) => {
+    searchLocationRequestRef.current += 1
     setSelectedRestaurantId(restaurant.id)
+    setSelectedSearchResult(null)
     setIsViewportSheetOpen(false)
     setNotice('')
   }, [])
 
   const handleMapClick = useCallback(() => {
+    searchLocationRequestRef.current += 1
+    setSelectedSearchResult(null)
     setSearchResetKey((key) => key + 1)
     setHasSearchResults(false)
   }, [])
@@ -82,7 +97,30 @@ export function HomePage() {
     setHasSearchResults(visible)
   }, [])
 
-  async function handleSearchSelect(result: RestaurantSearchResult) {
+  async function handleSearchLocate(result: RestaurantSearchResult) {
+    const requestId = searchLocationRequestRef.current + 1
+    searchLocationRequestRef.current = requestId
+    setSelectedRestaurantId(null)
+    setSelectedSearchResult(null)
+    setIsViewportSheetOpen(false)
+    setNotice('')
+
+    try {
+      const coordinate = await resolveRestaurantCoordinates(result)
+      if (requestId !== searchLocationRequestRef.current) return
+      setSelectedSearchResult({ ...result, ...coordinate })
+    } catch (error) {
+      if (requestId !== searchLocationRequestRef.current) return
+      setNotice(
+        error instanceof RestaurantSelectionError
+          ? error.message
+          : '이 장소의 위치를 확인하지 못했습니다.',
+      )
+    }
+  }
+
+  async function handleSearchReview(result: RestaurantSearchResult) {
+    searchLocationRequestRef.current += 1
     const resultKey = normalizeRestaurantIdentity(
       result.title,
       result.roadAddress || result.address,
@@ -95,6 +133,7 @@ export function HomePage() {
       return
     }
 
+    setSelectedSearchResult(null)
     setSelectedRestaurantId(existingRestaurant.id)
     setNotice('')
     try {
@@ -130,7 +169,8 @@ export function HomePage() {
           <RestaurantSearch
             key={searchResetKey}
             viewport={viewport}
-            onSelect={handleSearchSelect}
+            onLocate={handleSearchLocate}
+            onReview={handleSearchReview}
             onResultsVisibilityChange={handleSearchResultsVisibilityChange}
           />
 
@@ -197,6 +237,7 @@ export function HomePage() {
           <NaverMap
             restaurants={restaurants}
             selectedRestaurant={selectedRestaurant}
+            selectedSearchResult={selectedSearchResult}
             onSelectRestaurant={handleMarkerSelect}
             onMapClick={handleMapClick}
             onViewportChange={handleViewportChange}

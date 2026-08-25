@@ -8,6 +8,12 @@ export interface RestaurantSearchResult {
   link: string | null
 }
 
+export interface LocatedRestaurantSearchResult
+  extends RestaurantSearchResult {
+  latitude: number
+  longitude: number
+}
+
 export interface RestaurantSearchResponse {
   total: number
   items: RestaurantSearchResult[]

@@ -36,7 +36,7 @@ supabase/
 지도 탐색에서 다음 세 기능은 서로 다른 데이터 경로로 동작합니다.
 
 - **일반 검색**: NAVER Local Search에 사용자가 입력한 검색어만 전달하며 현재 지도 위치를 자동으로 섞지 않습니다.
-- **이 지역에서 다시 검색**: 일반 검색 후 지도를 의미 있게 움직였을 때만 표시됩니다. 사용자가 명시적으로 누르면 현재 중심을 `/api/naver-reverse-geocode`로 행정동/구 context로 바꾸고, 지역 query 최대 2개의 결과와 기존 일반 결과를 identity 기준으로 merge한 뒤 이름 관련도, viewport 포함 여부, 중심 거리, NAVER 순서를 조합해 상위 8개를 보여 줍니다.
+- **이 지역에서 다시 검색**: 일반 검색 직후 현재 viewport에서 바로 실행할 수 있습니다. 한 번 실행한 뒤에는 지도를 의미 있게 움직였을 때 다시 표시됩니다. 사용자가 명시적으로 누르면 현재 중심을 `/api/naver-reverse-geocode`로 행정동/구 context로 바꾸고, 지역 query 최대 2개의 결과와 기존 일반 결과를 identity 기준으로 merge한 뒤 이름 관련도, viewport 포함 여부, 중심 거리, NAVER 순서를 조합해 상위 8개를 보여 줍니다.
 - **이 지역 N곳**: NAVER 검색 결과가 아니라 이미 Supabase에 등록된 restaurant aggregate를 `map.getBounds().hasLatLng()`로 client-side filtering한 목록입니다. 지도 `idle` 시점과 기존 Realtime 갱신 시에만 다시 계산합니다.
 
 첫 지도 진입은 서울시청 fallback을 즉시 표시하면서 browser Geolocation을 비차단으로 요청합니다. 성공하면 현재 위치로 이동하고, 미지원·거부·timeout이면 fallback 지도와 나머지 검색/Feed/MY 기능을 그대로 사용할 수 있습니다. GPS 좌표와 위치 이력은 Supabase에 저장하지 않으며 browser session의 지도 중심과 명시적 지역 검색 context로만 사용합니다.
@@ -107,8 +107,8 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - SDK를 한 번만 비동기 로드하는 helper와 서울권 초기 viewport
 - Client ID 누락, load timeout/failure, `window.naver` 초기화 실패 UI
 - idle/loading/success/empty/error를 처리하는 음식점 검색 UI
-- 결과의 `후기 남기기` 선택은 DB를 변경하지 않고 후기 작성 UI만 표시
-- 좌표가 없는 결과를 선택할 때만 도로명 주소 우선 lazy Geocoding
+- 검색 결과 본문 선택은 좌표를 확인해 지도 중심을 이동하고 임시 장소 pin만 표시하며, 별도 `후기 남기기` control이 후기 작성 UI를 엶
+- 좌표가 없는 결과의 위치 확인이나 후기 저장에만 도로명 주소 우선 lazy Geocoding
 - `GET /api/naver-search?q=<query>`의 method, 공백, 100자 제한 검증
 - `GET /api/naver-geocode?address=<address>`의 method, 공백, 300자 제한 검증
 - 8초 upstream timeout, NAVER 4xx/5xx 및 비정상 JSON/shape의 안전한 오류 처리

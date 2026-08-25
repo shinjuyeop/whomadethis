@@ -5,6 +5,7 @@ import { distanceInMeters } from '../lib/mapDistance'
 import { loadNaverMaps } from '../lib/naverMaps'
 import type { Restaurant } from '../types/database'
 import type { MapCoordinate, MapViewport } from '../types/map'
+import type { LocatedRestaurantSearchResult } from '../types/naverSearch'
 import { AppIcon } from './AppIcon'
 
 const SEOUL_CITY_HALL = {
@@ -18,10 +19,25 @@ type LocationState = 'idle' | 'locating' | 'located' | 'error'
 interface NaverMapProps {
   restaurants: Restaurant[]
   selectedRestaurant: Restaurant | null
+  selectedSearchResult: LocatedRestaurantSearchResult | null
   onSelectRestaurant: (restaurant: Restaurant) => void
   onMapClick: () => void
   onViewportChange: (viewport: MapViewport) => void
   onVisibleRestaurantsChange: (restaurants: Restaurant[]) => void
+}
+
+function escapeHtml(value: string) {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+      })[character] ?? character,
+  )
 }
 
 function coordinateFromLatLng(latLng: NaverLatLng): MapCoordinate {
@@ -46,6 +62,7 @@ function manualLocationMessage(error: unknown) {
 export function NaverMap({
   restaurants,
   selectedRestaurant,
+  selectedSearchResult,
   onSelectRestaurant,
   onMapClick,
   onViewportChange,
@@ -55,6 +72,7 @@ export function NaverMap({
   const mapRef = useRef<NaverMapInstance | null>(null)
   const restaurantsRef = useRef(restaurants)
   const currentLocationMarkerRef = useRef<NaverMarkerInstance | null>(null)
+  const searchResultMarkerRef = useRef<NaverMarkerInstance | null>(null)
   const initialLocationRequestedRef = useRef(false)
   const [map, setMap] = useState<NaverMapInstance | null>(null)
   const clientId = import.meta.env.VITE_NAVER_MAP_CLIENT_ID?.trim()
@@ -102,6 +120,8 @@ export function NaverMap({
       cancelled = true
       currentLocationMarkerRef.current?.setMap(null)
       currentLocationMarkerRef.current = null
+      searchResultMarkerRef.current?.setMap(null)
+      searchResultMarkerRef.current = null
       const mapToDestroy = mapRef.current
       mapRef.current = null
       setMap(null)
@@ -234,6 +254,46 @@ export function NaverMap({
     )
     mapRef.current.setZoom(16)
   }, [selectedRestaurant, state])
+
+  useEffect(() => {
+    searchResultMarkerRef.current?.setMap(null)
+    searchResultMarkerRef.current = null
+
+    if (
+      state !== 'ready' ||
+      !map ||
+      !window.naver?.maps ||
+      !selectedSearchResult
+    ) {
+      return
+    }
+
+    const { maps } = window.naver
+    const position = new maps.LatLng(
+      selectedSearchResult.latitude,
+      selectedSearchResult.longitude,
+    )
+    const title = escapeHtml(selectedSearchResult.title)
+    const marker = new maps.Marker({
+      map,
+      position,
+      title: selectedSearchResult.title,
+      icon: {
+        content: `<div class="search-location-marker" role="img" aria-label="${title} 위치"><strong>${title}</strong><span><i></i></span></div>`,
+        anchor: new maps.Point(90, 62),
+      },
+    })
+    searchResultMarkerRef.current = marker
+    map.setCenter(position)
+    map.setZoom(16)
+
+    return () => {
+      marker.setMap(null)
+      if (searchResultMarkerRef.current === marker) {
+        searchResultMarkerRef.current = null
+      }
+    }
+  }, [map, selectedSearchResult, state])
 
   useEffect(() => {
     if (state !== 'ready' || !map || !containerRef.current) return
