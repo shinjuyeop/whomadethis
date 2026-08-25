@@ -108,7 +108,7 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - SDK를 한 번만 비동기 로드하는 helper와 서울권 초기 viewport
 - Client ID 누락, load timeout/failure, `window.naver` 초기화 실패 UI
 - idle/loading/success/empty/error를 처리하는 음식점 검색 UI
-- 검색 결과 본문 선택은 좌표를 확인해 지도 중심을 이동하고 임시 장소 pin만 표시하며, 별도 `후기 남기기` control이 후기 작성 UI를 엶
+- 검색 결과 본문 선택은 좌표를 확인해 지도 중심을 이동하고 임시 장소 pin만 표시하며, 후보 목록은 compact 선택 상태로 접힘. 선택 상태의 `후기`와 `다른 결과` control로 저장 또는 목록 복귀 가능
 - 실제 주소 검색은 Local Search 대신 Geocoding 1회로 위치를 표시하고, drag로 조정한 좌표와 사용자가 입력한 장소명을 기존 후기 저장 transaction에 전달
 - 좌표가 없는 결과의 위치 확인이나 후기 저장에만 도로명 주소 우선 lazy Geocoding
 - `GET /api/naver-search?q=<query>`의 method, 공백, 100자 제한 검증

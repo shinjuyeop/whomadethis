@@ -48,6 +48,10 @@ export function RestaurantSearch({
   const [contextLabel, setContextLabel] = useState('')
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isLocatingResult, setIsLocatingResult] = useState(false)
+  const [selectedResult, setSelectedResult] =
+    useState<RestaurantSearchResult | null>(null)
+  const [areResultsCollapsed, setAreResultsCollapsed] = useState(false)
 
   useEffect(() => {
     onResultsVisibilityChange(result !== null || manualLocation !== null)
@@ -63,6 +67,7 @@ export function RestaurantSearch({
 
   const canSearchCurrentArea = Boolean(
     result &&
+      !areResultsCollapsed &&
       viewport &&
       query.trim() === submittedQuery &&
       (searchMode === 'general' ||
@@ -88,6 +93,8 @@ export function RestaurantSearch({
     setMessage('')
     setContextLabel('')
     setSearchMode('general')
+    setSelectedResult(null)
+    setAreResultsCollapsed(false)
     onClearLocation()
 
     if (isLikelyKoreanAddress(trimmedQuery)) {
@@ -147,6 +154,8 @@ export function RestaurantSearch({
       setContextLabel(areaResult.contextLabel)
       setSearchMode('area')
       setSearchAnchor(viewport)
+      setSelectedResult(null)
+      setAreResultsCollapsed(false)
     } catch (error) {
       if (requestId !== searchRequestRef.current) return
       setMessage(
@@ -159,9 +168,26 @@ export function RestaurantSearch({
     }
   }
 
-  function handleLocate(item: RestaurantSearchResult) {
+  async function handleLocate(item: RestaurantSearchResult) {
+    const requestId = searchRequestRef.current + 1
+    searchRequestRef.current = requestId
     setMessage('')
-    void onLocate(item)
+    setIsLocatingResult(true)
+    try {
+      await onLocate(item)
+      if (requestId !== searchRequestRef.current) return
+      setSelectedResult(item)
+      setAreResultsCollapsed(true)
+    } catch (error) {
+      if (requestId !== searchRequestRef.current) return
+      setMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : '이 장소의 위치를 확인하지 못했습니다.',
+      )
+    } finally {
+      if (requestId === searchRequestRef.current) setIsLocatingResult(false)
+    }
   }
 
   function handleReview(item: RestaurantSearchResult) {
@@ -189,7 +215,10 @@ export function RestaurantSearch({
               if (nextQuery.trim() !== submittedQuery) {
                 searchRequestRef.current += 1
                 setIsLoading(false)
+                setIsLocatingResult(false)
                 setResult(null)
+                setSelectedResult(null)
+                setAreResultsCollapsed(false)
                 setSearchMode('general')
                 setContextLabel('')
                 onClearLocation()
@@ -214,7 +243,7 @@ export function RestaurantSearch({
           </p>
         )}
 
-        {result && (
+        {result && !areResultsCollapsed && (
           <div className="search-results" aria-live="polite">
             {result.items.length === 0 && !isLoading ? (
               <p>
@@ -241,8 +270,9 @@ export function RestaurantSearch({
                         <button
                           className="search-result-location"
                           type="button"
+                          disabled={isLocatingResult}
                           aria-label={`${item.title} 위치 보기`}
-                          onClick={() => handleLocate(item)}
+                          onClick={() => void handleLocate(item)}
                         >
                           <span className="search-result-copy">
                             <strong>{item.title}</strong>
@@ -257,6 +287,7 @@ export function RestaurantSearch({
                         <button
                           className="search-result-review"
                           type="button"
+                          disabled={isLocatingResult}
                           aria-label={`${item.title} 후기 남기기`}
                           onClick={() => handleReview(item)}
                         >
@@ -268,6 +299,38 @@ export function RestaurantSearch({
                 </ul>
               </>
             )}
+          </div>
+        )}
+
+        {result && areResultsCollapsed && selectedResult && (
+          <div className="selected-search-result" aria-live="polite">
+            <button
+              className="selected-search-result-location"
+              type="button"
+              disabled={isLocatingResult}
+              aria-label={`${selectedResult.title} 위치 다시 보기`}
+              onClick={() => void handleLocate(selectedResult)}
+            >
+              <strong>{selectedResult.title}</strong>
+              <small>
+                {isLocatingResult ? '위치 확인 중…' : '지도에 표시 중'}
+              </small>
+            </button>
+            <button
+              className="selected-search-result-action"
+              type="button"
+              aria-label={`${selectedResult.title} 후기 남기기`}
+              onClick={() => handleReview(selectedResult)}
+            >
+              후기
+            </button>
+            <button
+              className="selected-search-result-action"
+              type="button"
+              onClick={() => setAreResultsCollapsed(false)}
+            >
+              다른 결과
+            </button>
           </div>
         )}
 

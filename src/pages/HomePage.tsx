@@ -117,11 +117,11 @@ export function HomePage() {
       setSelectedSearchResult({ ...result, ...coordinate, kind: 'search' })
     } catch (error) {
       if (requestId !== searchLocationRequestRef.current) return
-      setNotice(
-        error instanceof RestaurantSelectionError
-          ? error.message
-          : '이 장소의 위치를 확인하지 못했습니다.',
-      )
+      throw error instanceof RestaurantSelectionError
+        ? error
+        : new RestaurantSelectionError(
+            '이 장소의 위치를 확인하지 못했습니다.',
+          )
     }
   }
 
