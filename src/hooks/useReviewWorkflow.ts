@@ -17,6 +17,7 @@ import type { RestaurantSearchResult } from '../types/naverSearch'
 interface ReviewEditorState {
   target: RestaurantSearchResult
   review?: Review
+  isManualLocation?: boolean
 }
 
 interface ReviewSavedResult {
@@ -53,6 +54,10 @@ export function useReviewWorkflow({
     setEditor({ target })
   }
 
+  function openManual(target: RestaurantSearchResult) {
+    setEditor({ target, isManualLocation: true })
+  }
+
   function openEdit(restaurant: Restaurant, review: Review) {
     setEditor({ target: restaurantToSearchResult(restaurant), review })
   }
@@ -77,7 +82,13 @@ export function useReviewWorkflow({
     onProgress: (progress: ImageUploadProgress) => void,
   ) {
     if (!editor) return
-    const created = await createVisitReview(editor.target, submission.fields)
+    const target = editor.isManualLocation
+      ? {
+          ...editor.target,
+          title: submission.restaurantName?.trim() ?? '',
+        }
+      : editor.target
+    const created = await createVisitReview(target, submission.fields)
 
     if (submission.newFiles.length > 0) {
       try {
@@ -170,6 +181,7 @@ export function useReviewWorkflow({
   return {
     editor,
     openNew,
+    openManual,
     openEdit,
     openActivityEdit,
     closeEditor: () => setEditor(null),

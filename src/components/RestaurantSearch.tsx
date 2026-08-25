@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { isLikelyKoreanAddress } from '../lib/addressSearch'
 import { hasMeaningfulViewportChange } from '../lib/mapDistance'
 import {
   SearchRequestError,
@@ -7,6 +8,7 @@ import {
 } from '../lib/naverSearch'
 import type { MapViewport } from '../types/map'
 import type {
+  LocatedRestaurantSearchResult,
   RestaurantSearchResponse,
   RestaurantSearchResult,
 } from '../types/naverSearch'
@@ -14,8 +16,12 @@ import { AppIcon } from './AppIcon'
 
 interface RestaurantSearchProps {
   viewport: MapViewport | null
+  manualLocation: LocatedRestaurantSearchResult | null
   onLocate: (restaurant: RestaurantSearchResult) => void | Promise<void>
+  onLocateAddress: (address: string) => Promise<void>
   onReview: (restaurant: RestaurantSearchResult) => void | Promise<void>
+  onManualReview: () => void
+  onClearLocation: () => void
   onResultsVisibilityChange: (visible: boolean) => void
 }
 
@@ -24,11 +30,16 @@ const SEARCH_UNAVAILABLE_MESSAGE =
 
 export function RestaurantSearch({
   viewport,
+  manualLocation,
   onLocate,
+  onLocateAddress,
   onReview,
+  onManualReview,
+  onClearLocation,
   onResultsVisibilityChange,
 }: RestaurantSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const searchRequestRef = useRef(0)
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [result, setResult] = useState<RestaurantSearchResponse | null>(null)
@@ -39,11 +50,14 @@ export function RestaurantSearch({
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    onResultsVisibilityChange(result !== null)
-  }, [onResultsVisibilityChange, result])
+    onResultsVisibilityChange(result !== null || manualLocation !== null)
+  }, [manualLocation, onResultsVisibilityChange, result])
 
   useEffect(
-    () => () => onResultsVisibilityChange(false),
+    () => () => {
+      searchRequestRef.current += 1
+      onResultsVisibilityChange(false)
+    },
     [onResultsVisibilityChange],
   )
 
@@ -62,21 +76,48 @@ export function RestaurantSearch({
     const trimmedQuery = query.trim()
 
     if (!trimmedQuery) {
+      searchRequestRef.current += 1
       setMessage('검색어를 입력해 주세요.')
       setResult(null)
       return
     }
 
+    const requestId = searchRequestRef.current + 1
+    searchRequestRef.current = requestId
     setIsLoading(true)
     setMessage('')
+    setContextLabel('')
+    setSearchMode('general')
+    onClearLocation()
+
+    if (isLikelyKoreanAddress(trimmedQuery)) {
+      setResult(null)
+      setSearchAnchor(null)
+      try {
+        await onLocateAddress(trimmedQuery)
+        if (requestId !== searchRequestRef.current) return
+        setSubmittedQuery(trimmedQuery)
+      } catch (error) {
+        if (requestId !== searchRequestRef.current) return
+        setMessage(
+          error instanceof Error && error.message
+            ? error.message
+            : '입력한 주소의 위치를 확인하지 못했습니다.',
+        )
+      } finally {
+        if (requestId === searchRequestRef.current) setIsLoading(false)
+      }
+      return
+    }
+
     try {
       const nextResult = await searchRestaurants(trimmedQuery)
+      if (requestId !== searchRequestRef.current) return
       setResult(nextResult)
       setSubmittedQuery(trimmedQuery)
       setSearchAnchor(viewport)
-      setSearchMode('general')
-      setContextLabel('')
     } catch (error) {
+      if (requestId !== searchRequestRef.current) return
       setResult(null)
       setMessage(
         error instanceof SearchRequestError
@@ -84,13 +125,15 @@ export function RestaurantSearch({
           : SEARCH_UNAVAILABLE_MESSAGE,
       )
     } finally {
-      setIsLoading(false)
+      if (requestId === searchRequestRef.current) setIsLoading(false)
     }
   }
 
   async function handleAreaSearch() {
     if (!viewport || !result || !submittedQuery || isLoading) return
 
+    const requestId = searchRequestRef.current + 1
+    searchRequestRef.current = requestId
     setIsLoading(true)
     setMessage('')
     try {
@@ -99,18 +142,20 @@ export function RestaurantSearch({
         viewport,
         result.items,
       )
+      if (requestId !== searchRequestRef.current) return
       setResult(areaResult.response)
       setContextLabel(areaResult.contextLabel)
       setSearchMode('area')
       setSearchAnchor(viewport)
     } catch (error) {
+      if (requestId !== searchRequestRef.current) return
       setMessage(
         error instanceof SearchRequestError
           ? error.message
           : '현재 지도 지역에서 검색하지 못했습니다.',
       )
     } finally {
-      setIsLoading(false)
+      if (requestId === searchRequestRef.current) setIsLoading(false)
     }
   }
 
@@ -142,12 +187,15 @@ export function RestaurantSearch({
               const nextQuery = event.target.value
               setQuery(nextQuery)
               if (nextQuery.trim() !== submittedQuery) {
+                searchRequestRef.current += 1
+                setIsLoading(false)
                 setResult(null)
                 setSearchMode('general')
                 setContextLabel('')
+                onClearLocation()
               }
             }}
-            placeholder="음식점 이름 검색"
+            placeholder="음식점 이름 또는 주소 검색"
             autoComplete="off"
             maxLength={100}
           />
@@ -220,6 +268,21 @@ export function RestaurantSearch({
                 </ul>
               </>
             )}
+          </div>
+        )}
+
+        {manualLocation?.kind === 'manual' && (
+          <div className="manual-location-result" aria-live="polite">
+            <div>
+              <strong>주소 위치를 표시했습니다.</strong>
+              <span>
+                {manualLocation.roadAddress || manualLocation.address}
+              </span>
+              <small>핀을 움직여 정확한 위치로 조정할 수 있어요.</small>
+            </div>
+            <button type="button" onClick={onManualReview}>
+              이 위치에 장소 등록
+            </button>
           </div>
         )}
       </section>

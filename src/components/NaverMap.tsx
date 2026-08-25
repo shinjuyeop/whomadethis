@@ -21,6 +21,7 @@ interface NaverMapProps {
   selectedRestaurant: Restaurant | null
   selectedSearchResult: LocatedRestaurantSearchResult | null
   onSelectRestaurant: (restaurant: Restaurant) => void
+  onSearchResultPositionChange: (coordinate: MapCoordinate) => void
   onMapClick: () => void
   onViewportChange: (viewport: MapViewport) => void
   onVisibleRestaurantsChange: (restaurants: Restaurant[]) => void
@@ -64,6 +65,7 @@ export function NaverMap({
   selectedRestaurant,
   selectedSearchResult,
   onSelectRestaurant,
+  onSearchResultPositionChange,
   onMapClick,
   onViewportChange,
   onVisibleRestaurantsChange,
@@ -273,27 +275,40 @@ export function NaverMap({
       selectedSearchResult.latitude,
       selectedSearchResult.longitude,
     )
-    const title = escapeHtml(selectedSearchResult.title)
+    const isManualLocation = selectedSearchResult.kind === 'manual'
+    const markerTitle = isManualLocation
+      ? '등록할 위치'
+      : selectedSearchResult.title
+    const title = escapeHtml(markerTitle)
     const marker = new maps.Marker({
       map,
       position,
-      title: selectedSearchResult.title,
+      title: markerTitle,
+      draggable: isManualLocation,
       icon: {
-        content: `<div class="search-location-marker" role="img" aria-label="${title} 위치"><strong>${title}</strong><span><i></i></span></div>`,
+        content: `<div class="search-location-marker${isManualLocation ? ' search-location-marker--draggable' : ''}" role="img" aria-label="${title}${isManualLocation ? '. 핀을 움직여 위치를 조정할 수 있습니다.' : ' 위치'}"><strong>${title}</strong><span><i></i></span></div>`,
         anchor: new maps.Point(90, 62),
       },
     })
+    const dragListener = isManualLocation
+      ? maps.Event.addListener(marker, 'dragend', () => {
+          onSearchResultPositionChange(
+            coordinateFromLatLng(marker.getPosition()),
+          )
+        })
+      : null
     searchResultMarkerRef.current = marker
     map.setCenter(position)
     map.setZoom(16)
 
     return () => {
+      if (dragListener) maps.Event.removeListener(dragListener)
       marker.setMap(null)
       if (searchResultMarkerRef.current === marker) {
         searchResultMarkerRef.current = null
       }
     }
-  }, [map, selectedSearchResult, state])
+  }, [map, onSearchResultPositionChange, selectedSearchResult, state])
 
   useEffect(() => {
     if (state !== 'ready' || !map || !containerRef.current) return

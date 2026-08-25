@@ -40,11 +40,13 @@ interface NaverMarkerOptions {
   position: NaverLatLng
   title?: string
   icon?: NaverHtmlIcon
+  draggable?: boolean
 }
 
 interface NaverMarkerInstance {
   setMap(map: NaverMapInstance | null): void
   setPosition(position: NaverLatLng): void
+  getPosition(): NaverLatLng
 }
 
 interface NaverMapsEventListener {

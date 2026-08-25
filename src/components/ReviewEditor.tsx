@@ -14,12 +14,14 @@ export interface ReviewEditorSubmission {
   fields: ReviewFields
   newFiles: File[]
   removedPhotos: ReviewPhoto[]
+  restaurantName?: string
 }
 
 interface ReviewEditorProps {
   restaurantName: string
   restaurantAddress: string | null
   review?: Review
+  isManualLocation?: boolean
   onSubmit: (
     submission: ReviewEditorSubmission,
     onProgress: (progress: ImageUploadProgress) => void,
@@ -46,6 +48,7 @@ export function ReviewEditor({
   restaurantName,
   restaurantAddress,
   review,
+  isManualLocation = false,
   onSubmit,
   onClose,
 }: ReviewEditorProps) {
@@ -55,6 +58,7 @@ export function ReviewEditor({
   const [rating, setRating] = useState(initialRating)
   const [visitedAt, setVisitedAt] = useState(initialVisitedAt)
   const [content, setContent] = useState(initialContent)
+  const [manualRestaurantName, setManualRestaurantName] = useState('')
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [removedPhotoIds, setRemovedPhotoIds] = useState<Set<string>>(
     () => new Set(),
@@ -78,6 +82,7 @@ export function ReviewEditor({
       rating !== initialRating ||
       visitedAt !== initialVisitedAt ||
       content !== initialContent ||
+      (isManualLocation && manualRestaurantName.trim().length > 0) ||
       newFiles.length > 0 ||
       removedPhotoIds.size > 0,
     [
@@ -85,6 +90,8 @@ export function ReviewEditor({
       initialContent,
       initialRating,
       initialVisitedAt,
+      isManualLocation,
+      manualRestaurantName,
       newFiles.length,
       rating,
       removedPhotoIds.size,
@@ -159,6 +166,14 @@ export function ReviewEditor({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const trimmedRestaurantName = manualRestaurantName.trim()
+    if (
+      isManualLocation &&
+      (trimmedRestaurantName.length === 0 || trimmedRestaurantName.length > 200)
+    ) {
+      setMessage('장소 이름은 1자 이상 200자 이하로 입력해 주세요.')
+      return
+    }
     if (totalPhotoCount > MAX_REVIEW_PHOTOS) {
       setMessage(`사진은 최대 ${MAX_REVIEW_PHOTOS}장까지 올릴 수 있습니다.`)
       return
@@ -175,6 +190,9 @@ export function ReviewEditor({
           removedPhotos: existingPhotos.filter((photo) =>
             removedPhotoIds.has(photo.id),
           ),
+          restaurantName: isManualLocation
+            ? trimmedRestaurantName
+            : undefined,
         },
         setProgress,
       )
@@ -201,8 +219,16 @@ export function ReviewEditor({
       >
         <header className="review-editor-header">
           <div>
-            <p>{review ? '후기 수정' : '후기 남기기'}</p>
-            <h2 id="review-editor-title">{restaurantName}</h2>
+            <p>
+              {review
+                ? '후기 수정'
+                : isManualLocation
+                  ? '새 장소 등록'
+                  : '후기 남기기'}
+            </p>
+            <h2 id="review-editor-title">
+              {isManualLocation ? '이 위치에 후기 남기기' : restaurantName}
+            </h2>
             {restaurantAddress && <address>{restaurantAddress}</address>}
           </div>
           <button
@@ -217,6 +243,25 @@ export function ReviewEditor({
         </header>
 
         <form className="review-form" onSubmit={handleSubmit}>
+          {isManualLocation && (
+            <>
+              <label htmlFor="manual-restaurant-name">장소 이름</label>
+              <input
+                id="manual-restaurant-name"
+                type="text"
+                value={manualRestaurantName}
+                onChange={(event) => {
+                  setManualRestaurantName(event.target.value)
+                  setMessage('')
+                }}
+                placeholder="지도에 표시할 장소 이름"
+                maxLength={200}
+                autoComplete="organization"
+                disabled={isSubmitting}
+                required
+              />
+            </>
+          )}
           <div className="rating-field">
             <label htmlFor="review-rating">별점</label>
             <output htmlFor="review-rating">★ {rating.toFixed(1)}</output>

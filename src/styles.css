@@ -469,6 +469,48 @@ a {
   white-space: nowrap;
 }
 
+.manual-location-result {
+  display: grid;
+  gap: 12px;
+  padding: 13px 14px 14px;
+  border-top: 1px solid #eef0ef;
+}
+
+.manual-location-result > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.manual-location-result strong {
+  font-size: 0.86rem;
+}
+
+.manual-location-result span,
+.manual-location-result small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-location-result button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.manual-location-result button:hover {
+  background: var(--accent-hover);
+}
+
 .restaurant-load-status {
   align-self: flex-start;
   margin-top: 8px;
@@ -933,6 +975,10 @@ a {
 .review-form > input {
   min-height: 44px;
   padding: 0 11px;
+}
+
+#manual-restaurant-name {
+  font-size: 16px;
 }
 
 .review-form input[type="date"] {
@@ -1609,6 +1655,15 @@ code {
   justify-items: center;
   gap: 4px;
   pointer-events: none;
+}
+
+.search-location-marker--draggable {
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.search-location-marker--draggable:active {
+  cursor: grabbing;
 }
 
 .search-location-marker strong {

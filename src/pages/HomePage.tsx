@@ -17,6 +17,7 @@ import {
   useReviewWorkflow,
 } from '../hooks/useReviewWorkflow'
 import { useRestaurants } from '../hooks/useRestaurants'
+import { isLikelyRoadAddress } from '../lib/addressSearch'
 import { normalizeRestaurantIdentity } from '../lib/naverSearch'
 import {
   RestaurantSelectionError,
@@ -97,6 +98,11 @@ export function HomePage() {
     setHasSearchResults(visible)
   }, [])
 
+  const handleClearSearchLocation = useCallback(() => {
+    searchLocationRequestRef.current += 1
+    setSelectedSearchResult(null)
+  }, [])
+
   async function handleSearchLocate(result: RestaurantSearchResult) {
     const requestId = searchLocationRequestRef.current + 1
     searchLocationRequestRef.current = requestId
@@ -108,7 +114,7 @@ export function HomePage() {
     try {
       const coordinate = await resolveRestaurantCoordinates(result)
       if (requestId !== searchLocationRequestRef.current) return
-      setSelectedSearchResult({ ...result, ...coordinate })
+      setSelectedSearchResult({ ...result, ...coordinate, kind: 'search' })
     } catch (error) {
       if (requestId !== searchLocationRequestRef.current) return
       setNotice(
@@ -117,6 +123,58 @@ export function HomePage() {
           : '이 장소의 위치를 확인하지 못했습니다.',
       )
     }
+  }
+
+  async function handleAddressLocate(address: string) {
+    const requestId = searchLocationRequestRef.current + 1
+    searchLocationRequestRef.current = requestId
+    setSelectedRestaurantId(null)
+    setSelectedSearchResult(null)
+    setIsViewportSheetOpen(false)
+    setNotice('')
+
+    const isRoadAddress = isLikelyRoadAddress(address)
+    const target: RestaurantSearchResult = {
+      title: '등록할 위치',
+      category: null,
+      address: isRoadAddress ? null : address,
+      roadAddress: isRoadAddress ? address : null,
+      latitude: null,
+      longitude: null,
+      link: null,
+    }
+
+    try {
+      const coordinate = await resolveRestaurantCoordinates(target)
+      if (requestId !== searchLocationRequestRef.current) return
+      setSelectedSearchResult({ ...target, ...coordinate, kind: 'manual' })
+    } catch (error) {
+      if (requestId !== searchLocationRequestRef.current) return
+      throw error instanceof RestaurantSelectionError
+        ? error
+        : new RestaurantSelectionError(
+            '입력한 주소의 위치를 확인하지 못했습니다.',
+          )
+    }
+  }
+
+  const handleSearchResultPositionChange = useCallback(
+    (coordinate: { latitude: number; longitude: number }) => {
+      setSelectedSearchResult((current) =>
+        current?.kind === 'manual'
+          ? { ...current, ...coordinate }
+          : current,
+      )
+    },
+    [],
+  )
+
+  function handleManualReview() {
+    if (selectedSearchResult?.kind !== 'manual') return
+    workflow.openManual({
+      ...selectedSearchResult,
+      title: '',
+    })
   }
 
   async function handleSearchReview(result: RestaurantSearchResult) {
@@ -169,8 +227,16 @@ export function HomePage() {
           <RestaurantSearch
             key={searchResetKey}
             viewport={viewport}
+            manualLocation={
+              selectedSearchResult?.kind === 'manual'
+                ? selectedSearchResult
+                : null
+            }
             onLocate={handleSearchLocate}
+            onLocateAddress={handleAddressLocate}
             onReview={handleSearchReview}
+            onManualReview={handleManualReview}
+            onClearLocation={handleClearSearchLocation}
             onResultsVisibilityChange={handleSearchResultsVisibilityChange}
           />
 
@@ -239,6 +305,7 @@ export function HomePage() {
             selectedRestaurant={selectedRestaurant}
             selectedSearchResult={selectedSearchResult}
             onSelectRestaurant={handleMarkerSelect}
+            onSearchResultPositionChange={handleSearchResultPositionChange}
             onMapClick={handleMapClick}
             onViewportChange={handleViewportChange}
             onVisibleRestaurantsChange={handleVisibleRestaurantsChange}
@@ -291,6 +358,7 @@ export function HomePage() {
             workflow.editor.target.roadAddress || workflow.editor.target.address
           }
           review={workflow.editor.review}
+          isManualLocation={workflow.editor.isManualLocation}
           onSubmit={workflow.submit}
           onClose={workflow.closeEditor}
         />

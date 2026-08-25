@@ -80,6 +80,12 @@ export async function createVisitReview(
   fields: ReviewFields,
 ): Promise<CreatedVisitReview> {
   validateReviewFields(fields)
+  const restaurantName = restaurant.title.trim()
+  if (!restaurantName || restaurantName.length > 200) {
+    throw new ReviewMutationError(
+      '장소 이름은 1자 이상 200자 이하로 입력해 주세요.',
+    )
+  }
   if (!restaurant.roadAddress && !restaurant.address) {
     throw new ReviewMutationError('이 장소의 위치를 확인하지 못했습니다.')
   }
@@ -87,7 +93,7 @@ export async function createVisitReview(
   const coordinates = await resolveRestaurantCoordinates(restaurant)
   const { data, error } = await getSupabaseClient()
     .rpc('create_visit_review', {
-      p_name: restaurant.title,
+      p_name: restaurantName,
       p_category: restaurant.category,
       p_address: restaurant.address,
       p_road_address: restaurant.roadAddress,

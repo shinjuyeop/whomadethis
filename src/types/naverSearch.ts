@@ -12,6 +12,7 @@ export interface LocatedRestaurantSearchResult
   extends RestaurantSearchResult {
   latitude: number
   longitude: number
+  kind: 'search' | 'manual'
 }
 
 export interface RestaurantSearchResponse {

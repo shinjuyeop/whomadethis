@@ -33,9 +33,10 @@ supabase/
 
 브라우저는 NAVER API HUB와 Maps Geocoding API를 직접 호출하지 않습니다. `/api/naver-search`가 서버 전용 credential을 사용해 upstream을 호출하고 HTML 제거, 응답 검증, WGS84 좌표 정규화를 수행한 뒤 최소 application type만 반환합니다. `mapx`는 `longitude`, `mapy`는 `latitude`로 변환합니다. 검색 결과에 좌표가 없으면 필요한 상위 후보 또는 사용자가 선택한 결과에만 `/api/naver-geocode`가 도로명 주소(없으면 지번 주소)를 WGS84 좌표로 변환하며, 같은 주소는 browser session cache를 재사용합니다.
 
-지도 탐색에서 다음 세 기능은 서로 다른 데이터 경로로 동작합니다.
+지도 탐색의 검색·목록 기능은 서로 다른 데이터 경로로 동작합니다.
 
 - **일반 검색**: NAVER Local Search에 사용자가 입력한 검색어만 전달하며 현재 지도 위치를 자동으로 섞지 않습니다.
+- **주소로 위치 찾기**: 도로명·지번 주소 형태의 검색어는 `/api/naver-geocode`로 좌표를 확인해 지도에 이동 가능한 임시 pin을 표시합니다. 사용자는 pin을 조정하고 장소명을 직접 입력할 수 있으며, 후기 제출 전에는 restaurant를 만들지 않습니다.
 - **이 지역에서 다시 검색**: 일반 검색 직후 현재 viewport에서 바로 실행할 수 있습니다. 한 번 실행한 뒤에는 지도를 의미 있게 움직였을 때 다시 표시됩니다. 사용자가 명시적으로 누르면 현재 중심을 `/api/naver-reverse-geocode`로 행정동/구 context로 바꾸고, 지역 query 최대 2개의 결과와 기존 일반 결과를 identity 기준으로 merge한 뒤 이름 관련도, viewport 포함 여부, 중심 거리, NAVER 순서를 조합해 상위 8개를 보여 줍니다.
 - **이 지역 N곳**: NAVER 검색 결과가 아니라 이미 Supabase에 등록된 restaurant aggregate를 `map.getBounds().hasLatLng()`로 client-side filtering한 목록입니다. 지도 `idle` 시점과 기존 Realtime 갱신 시에만 다시 계산합니다.
 
@@ -108,6 +109,7 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - Client ID 누락, load timeout/failure, `window.naver` 초기화 실패 UI
 - idle/loading/success/empty/error를 처리하는 음식점 검색 UI
 - 검색 결과 본문 선택은 좌표를 확인해 지도 중심을 이동하고 임시 장소 pin만 표시하며, 별도 `후기 남기기` control이 후기 작성 UI를 엶
+- 실제 주소 검색은 Local Search 대신 Geocoding 1회로 위치를 표시하고, drag로 조정한 좌표와 사용자가 입력한 장소명을 기존 후기 저장 transaction에 전달
 - 좌표가 없는 결과의 위치 확인이나 후기 저장에만 도로명 주소 우선 lazy Geocoding
 - `GET /api/naver-search?q=<query>`의 method, 공백, 100자 제한 검증
 - `GET /api/naver-geocode?address=<address>`의 method, 공백, 300자 제한 검증
