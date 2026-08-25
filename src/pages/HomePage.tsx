@@ -7,19 +7,21 @@ import { RestaurantDetail } from '../components/RestaurantDetail'
 import { RestaurantPreview } from '../components/RestaurantPreview'
 import { RestaurantSearch } from '../components/RestaurantSearch'
 import { ReviewEditor } from '../components/ReviewEditor'
+import {
+  ViewportRestaurantList,
+  ViewportRestaurantSheet,
+} from '../components/ViewportRestaurantList'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import {
   restaurantToSearchResult,
   useReviewWorkflow,
 } from '../hooks/useReviewWorkflow'
 import { useRestaurants } from '../hooks/useRestaurants'
+import { normalizeRestaurantIdentity } from '../lib/naverSearch'
 import { loadRestaurantReviews } from '../lib/reviews'
 import type { Restaurant } from '../types/database'
+import type { MapViewport } from '../types/map'
 import type { RestaurantSearchResult } from '../types/naverSearch'
-
-function normalizedSourceKey(name: string, address: string | null): string {
-  return `${name.trim().toLowerCase().replace(/\s+/g, '')}|${(address ?? '').trim().toLowerCase().replace(/\s+/g, '')}`
-}
 
 export function HomePage() {
   const { profile } = useOutletContext<AuthenticatedOutletContext>()
@@ -29,6 +31,10 @@ export function HomePage() {
   )
   const [detailRefreshKey, setDetailRefreshKey] = useState(0)
   const [searchResetKey, setSearchResetKey] = useState(0)
+  const [viewport, setViewport] = useState<MapViewport | null>(null)
+  const [visibleRestaurants, setVisibleRestaurants] = useState<Restaurant[]>([])
+  const [hasSearchResults, setHasSearchResults] = useState(false)
+  const [isViewportSheetOpen, setIsViewportSheetOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const { restaurants, status, errorMessage, refresh } = useRestaurants()
   const selectedRestaurant =
@@ -51,15 +57,33 @@ export function HomePage() {
 
   const handleMarkerSelect = useCallback((restaurant: Restaurant) => {
     setSelectedRestaurantId(restaurant.id)
+    setIsViewportSheetOpen(false)
     setNotice('')
   }, [])
 
   const handleMapClick = useCallback(() => {
     setSearchResetKey((key) => key + 1)
+    setHasSearchResults(false)
+  }, [])
+
+  const handleViewportChange = useCallback((nextViewport: MapViewport) => {
+    setViewport(nextViewport)
+  }, [])
+
+  const handleVisibleRestaurantsChange = useCallback(
+    (nextRestaurants: Restaurant[]) => {
+      setVisibleRestaurants(nextRestaurants)
+      if (nextRestaurants.length === 0) setIsViewportSheetOpen(false)
+    },
+    [],
+  )
+
+  const handleSearchResultsVisibilityChange = useCallback((visible: boolean) => {
+    setHasSearchResults(visible)
   }, [])
 
   async function handleSearchSelect(result: RestaurantSearchResult) {
-    const resultKey = normalizedSourceKey(
+    const resultKey = normalizeRestaurantIdentity(
       result.title,
       result.roadAddress || result.address,
     )
@@ -103,7 +127,12 @@ export function HomePage() {
     <main className="map-page">
       <div className="map-layout">
         <aside className="map-sidebar" aria-label="음식점 검색과 선택 정보">
-          <RestaurantSearch key={searchResetKey} onSelect={handleSearchSelect} />
+          <RestaurantSearch
+            key={searchResetKey}
+            viewport={viewport}
+            onSelect={handleSearchSelect}
+            onResultsVisibilityChange={handleSearchResultsVisibilityChange}
+          />
 
           {notice && (!selectedRestaurant || isMobile) && (
             <div className="home-notice" role="status">
@@ -154,6 +183,14 @@ export function HomePage() {
               onReviewsChanged={handleReviewDeleted}
             />
           )}
+
+          {!isMobile && !selectedRestaurant && !hasSearchResults && (
+            <ViewportRestaurantList
+              restaurants={visibleRestaurants}
+              status={status}
+              onSelect={handleMarkerSelect}
+            />
+          )}
         </aside>
 
         <section className="map-canvas" aria-label="친구들의 맛집 지도">
@@ -162,7 +199,20 @@ export function HomePage() {
             selectedRestaurant={selectedRestaurant}
             onSelectRestaurant={handleMarkerSelect}
             onMapClick={handleMapClick}
+            onViewportChange={handleViewportChange}
+            onVisibleRestaurantsChange={handleVisibleRestaurantsChange}
           />
+          {isMobile && visibleRestaurants.length > 0 && (
+            <button
+              type="button"
+              className={`viewport-list-trigger${selectedRestaurant ? ' viewport-list-trigger--raised' : ''}`}
+              aria-label="이 지역의 기록 보기"
+              aria-expanded={isViewportSheetOpen}
+              onClick={() => setIsViewportSheetOpen(true)}
+            >
+              이 지역 {visibleRestaurants.length}곳
+            </button>
+          )}
         </section>
 
         {selectedRestaurant && isMobile && (
@@ -183,6 +233,14 @@ export function HomePage() {
           />
         )}
       </div>
+
+      {isMobile && isViewportSheetOpen && visibleRestaurants.length > 0 && (
+        <ViewportRestaurantSheet
+          restaurants={visibleRestaurants}
+          onClose={() => setIsViewportSheetOpen(false)}
+          onSelect={handleMarkerSelect}
+        />
+      )}
 
       {workflow.editor && (
         <ReviewEditor

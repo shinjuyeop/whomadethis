@@ -23,6 +23,7 @@ interface RestaurantRow {
 }
 
 const LOCATION_NOT_FOUND_MESSAGE = '이 장소의 위치를 확인하지 못했습니다.'
+const geocodeCache = new Map<string, Promise<GeocodeResponse>>()
 
 export class RestaurantSelectionError extends Error {}
 
@@ -44,6 +45,17 @@ function isGeocodeResponse(value: unknown): value is GeocodeResponse {
 }
 
 async function geocodeAddress(address: string): Promise<GeocodeResponse> {
+  const cacheKey = address.trim().toLowerCase().replace(/\s+/g, ' ')
+  const cached = geocodeCache.get(cacheKey)
+  if (cached) return cached
+
+  const request = requestGeocodeAddress(address)
+  geocodeCache.set(cacheKey, request)
+  request.catch(() => geocodeCache.delete(cacheKey))
+  return request
+}
+
+async function requestGeocodeAddress(address: string): Promise<GeocodeResponse> {
   try {
     const response = await fetch(
       `/api/naver-geocode?address=${encodeURIComponent(address)}`,

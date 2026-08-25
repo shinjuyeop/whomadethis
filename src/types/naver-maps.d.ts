@@ -7,10 +7,20 @@ interface NaverMapOptions {
 interface NaverLatLng {
   readonly x: number
   readonly y: number
+  lat(): number
+  lng(): number
+}
+
+interface NaverLatLngBounds {
+  getSW(): NaverLatLng
+  getNE(): NaverLatLng
+  hasLatLng(latLng: NaverLatLng): boolean
 }
 
 interface NaverMapInstance {
   destroy?: () => void
+  getBounds(): NaverLatLngBounds
+  getCenter(): NaverLatLng
   setCenter(center: NaverLatLng): void
   setZoom(zoom: number): void
 }

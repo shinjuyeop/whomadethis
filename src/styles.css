@@ -244,6 +244,14 @@ a {
   pointer-events: none;
 }
 
+.search-stack {
+  display: flex;
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+  pointer-events: none;
+}
+
 .search-panel,
 .restaurant-load-status,
 .restaurant-detail,
@@ -261,6 +269,30 @@ a {
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.area-search-button {
+  align-self: center;
+  min-height: 44px;
+  max-width: calc(100% - 24px);
+  margin-top: 8px;
+  padding: 0 15px;
+  overflow: hidden;
+  border: 1px solid rgb(22 128 82 / 22%);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent-dark);
+  box-shadow: 0 3px 12px rgb(25 29 27 / 11%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.area-search-button:hover:not(:disabled) {
+  border-color: rgb(22 128 82 / 38%);
+  background: #fbfdfc;
 }
 
 .search-panel:focus-within {
@@ -361,6 +393,11 @@ a {
   padding: 10px 14px;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.search-results > p strong {
+  color: var(--accent-dark);
+  font-weight: 700;
 }
 
 .search-results ul {
@@ -1555,6 +1592,193 @@ code {
   background: #fff;
 }
 
+.viewport-list-trigger {
+  position: absolute;
+  z-index: 5;
+  bottom: 12px;
+  left: 12px;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-floating);
+  font-size: 0.78rem;
+  font-weight: 700;
+  transition: bottom 150ms ease;
+}
+
+.viewport-list-trigger--raised {
+  bottom: 184px;
+}
+
+.viewport-sheet-backdrop {
+  position: fixed;
+  z-index: 20;
+  top: 52px;
+  right: 0;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  background: rgb(22 27 24 / 28%);
+}
+
+.viewport-sheet {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-height: min(64dvh, 520px);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px 18px 0 0;
+  background: var(--surface);
+  box-shadow: 0 -8px 24px rgb(25 29 27 / 16%);
+  animation: preview-enter 190ms ease-out both;
+}
+
+.viewport-sheet-handle {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 34px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d8ddda;
+  transform: translateX(-50%);
+}
+
+.viewport-sheet > header {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px 16px 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.viewport-sheet > header p,
+.viewport-restaurant-section > header p {
+  margin: 0 0 3px;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.viewport-sheet > header h2,
+.viewport-restaurant-section > header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: -0.025em;
+}
+
+.viewport-sheet > header div > span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.viewport-sheet > header button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  margin: -8px -7px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+
+.viewport-sheet > header button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.viewport-restaurant-list {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.viewport-restaurant-list li + li {
+  border-top: 1px solid #edf0ed;
+}
+
+.viewport-restaurant-list li > button {
+  display: flex;
+  width: 100%;
+  min-height: 78px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.viewport-restaurant-list li > button:hover {
+  background: var(--surface-muted);
+}
+
+.viewport-restaurant-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.viewport-restaurant-copy strong,
+.viewport-restaurant-copy small,
+.viewport-restaurant-copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewport-restaurant-copy strong {
+  font-size: 0.9rem;
+}
+
+.viewport-restaurant-copy small,
+.viewport-restaurant-copy > span,
+.viewport-restaurant-stats small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.viewport-restaurant-copy > span {
+  font-size: 0.68rem;
+}
+
+.viewport-restaurant-stats {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  gap: 4px;
+}
+
+.viewport-restaurant-stats strong {
+  color: var(--accent-dark);
+  font-size: 0.8rem;
+}
+
+.viewport-restaurant-section {
+  display: none;
+}
+
 .restaurant-preview {
   position: absolute;
   z-index: 6;
@@ -2153,6 +2377,11 @@ code {
     pointer-events: auto;
   }
 
+  .search-stack {
+    flex: none;
+    pointer-events: auto;
+  }
+
   .map-canvas {
     position: relative;
     inset: auto;
@@ -2181,6 +2410,12 @@ code {
     border: 1px solid var(--border);
   }
 
+  .area-search-button {
+    max-width: 100%;
+    margin-top: 10px;
+    box-shadow: none;
+  }
+
   .restaurant-load-status {
     align-self: stretch;
     margin-top: 12px;
@@ -2207,6 +2442,48 @@ code {
     border-top: 1px solid var(--border);
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .viewport-restaurant-section {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    margin-top: 14px;
+    padding-top: 17px;
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+  }
+
+  .viewport-restaurant-section > header {
+    flex: none;
+    padding: 0 2px 10px;
+  }
+
+  .viewport-restaurant-section > header h2 span {
+    color: var(--accent-dark);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .viewport-restaurant-section .viewport-restaurant-list {
+    flex: 1;
+  }
+
+  .viewport-restaurant-section .viewport-restaurant-list li > button {
+    min-height: 72px;
+    padding: 11px 2px;
+  }
+
+  .viewport-restaurant-state {
+    margin: 10px 2px 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .viewport-list-trigger,
+  .viewport-sheet-backdrop {
+    display: none;
   }
 
   .map-location-control--raised {

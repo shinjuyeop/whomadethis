@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { executeNaverGeocode } from './api/naver-geocode-core.js'
+import { executeNaverReverseGeocode } from './api/naver-reverse-geocode-core.js'
 import { executeNaverSearch } from './api/naver-search-core.js'
 
 interface ServerCredentials {
@@ -43,6 +44,27 @@ function localNaverApi(credentials: ServerCredentials): Plugin {
           const result = await executeNaverGeocode({
             method: request.method,
             address: url.searchParams.get('address'),
+            credentials: credentials.geocoding,
+          })
+
+          response.statusCode = result.status
+          response.setHeader('Cache-Control', 'no-store')
+          response.setHeader('Content-Type', 'application/json; charset=utf-8')
+          for (const [name, value] of Object.entries(result.headers ?? {})) {
+            response.setHeader(name, value)
+          }
+          response.end(JSON.stringify(result.body))
+        },
+      )
+
+      server.middlewares.use(
+        '/api/naver-reverse-geocode',
+        async (request, response) => {
+          const url = new URL(request.url ?? '/', 'http://localhost')
+          const result = await executeNaverReverseGeocode({
+            method: request.method,
+            latitude: url.searchParams.get('latitude'),
+            longitude: url.searchParams.get('longitude'),
             credentials: credentials.geocoding,
           })
 

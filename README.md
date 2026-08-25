@@ -14,8 +14,9 @@
 
 ```text
 api/
-  naver-geocode.ts         # Vercel Function entrypoint
+  naver-geocode.ts         # forward Geocoding Vercel Function entrypoint
   naver-geocode-core.ts    # address validation, upstream call, normalization
+  naver-reverse-geocode.ts # Reverse Geocoding Vercel Function entrypoint
   naver-search.ts          # Vercel Function entrypoint
   naver-search-core.ts     # validation, upstream call, normalization
 src/
@@ -30,7 +31,15 @@ supabase/
   seed.sql                 # synthetic local seed template
 ```
 
-브라우저는 NAVER API HUB와 Maps Geocoding API를 직접 호출하지 않습니다. `/api/naver-search`가 서버 전용 credential을 사용해 upstream을 호출하고 HTML 제거, 응답 검증, WGS84 좌표 정규화를 수행한 뒤 최소 application type만 반환합니다. `mapx`는 `longitude`, `mapy`는 `latitude`로 변환합니다. 검색 결과에 좌표가 없으면 사용자가 그 결과를 선택한 시점에만 `/api/naver-geocode`가 도로명 주소(없으면 지번 주소)를 WGS84 좌표로 변환합니다.
+브라우저는 NAVER API HUB와 Maps Geocoding API를 직접 호출하지 않습니다. `/api/naver-search`가 서버 전용 credential을 사용해 upstream을 호출하고 HTML 제거, 응답 검증, WGS84 좌표 정규화를 수행한 뒤 최소 application type만 반환합니다. `mapx`는 `longitude`, `mapy`는 `latitude`로 변환합니다. 검색 결과에 좌표가 없으면 필요한 상위 후보 또는 사용자가 선택한 결과에만 `/api/naver-geocode`가 도로명 주소(없으면 지번 주소)를 WGS84 좌표로 변환하며, 같은 주소는 browser session cache를 재사용합니다.
+
+지도 탐색에서 다음 세 기능은 서로 다른 데이터 경로로 동작합니다.
+
+- **일반 검색**: NAVER Local Search에 사용자가 입력한 검색어만 전달하며 현재 지도 위치를 자동으로 섞지 않습니다.
+- **이 지역에서 다시 검색**: 일반 검색 후 지도를 의미 있게 움직였을 때만 표시됩니다. 사용자가 명시적으로 누르면 현재 중심을 `/api/naver-reverse-geocode`로 행정동/구 context로 바꾸고, 지역 query 최대 2개의 결과와 기존 일반 결과를 identity 기준으로 merge한 뒤 이름 관련도, viewport 포함 여부, 중심 거리, NAVER 순서를 조합해 상위 8개를 보여 줍니다.
+- **이 지역 N곳**: NAVER 검색 결과가 아니라 이미 Supabase에 등록된 restaurant aggregate를 `map.getBounds().hasLatLng()`로 client-side filtering한 목록입니다. 지도 `idle` 시점과 기존 Realtime 갱신 시에만 다시 계산합니다.
+
+첫 지도 진입은 서울시청 fallback을 즉시 표시하면서 browser Geolocation을 비차단으로 요청합니다. 성공하면 현재 위치로 이동하고, 미지원·거부·timeout이면 fallback 지도와 나머지 검색/Feed/MY 기능을 그대로 사용할 수 있습니다. GPS 좌표와 위치 이력은 Supabase에 저장하지 않으며 browser session의 지도 중심과 명시적 지역 검색 context로만 사용합니다.
 
 ## 사용자 흐름
 
@@ -107,11 +116,13 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - 저장된 Supabase restaurant와 review aggregate를 한 번에 조회해 NAVER Map marker 표시
 - marker click/tap으로 공유 restaurant detail과 방문 기록 목록 표시
 - 지도 탭 시 열려 있던 검색 결과와 검색어를 정리해 지도 interaction 복원
-- 브라우저 위치 권한을 사용해 현재 위치 marker 표시와 지도 이동, 거부/timeout 안내
+- 첫 지도 진입과 `현재 위치` control이 공유 helper로 browser 위치를 확인하고, 거부/timeout에도 서울시청 fallback 유지
+- 명시적인 `이 지역에서 다시 검색`에서만 Reverse Geocoding 기반 행정동/구 context 사용
+- `idle` 완료 시 현재 viewport 안의 등록 장소를 가까운 순으로 계산해 mobile bottom sheet와 desktop sidebar에 표시
 - NAVER 기본 zoom control은 표시하지 않고 desktop wheel/trackpad와 mobile pinch/touch의 native 지도 gesture를 유지
 - `ResizeObserver` 기반 map resize 처리
 
-공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps Geocoding](https://api.ncloud-docs.com/docs/application-maps-geocoding), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)
+공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps Geocoding](https://api.ncloud-docs.com/docs/application-maps-geocoding), [NAVER Maps Reverse Geocoding](https://api.ncloud-docs.com/docs/application-maps-reversegeocoding), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)
 
 ## Supabase client와 database
 
@@ -155,8 +166,8 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 
 ## Responsive application shell
 
-- Mobile `< 768px`: 전체 지도, 상단 floating search, compact restaurant preview, 상세 route/review sheet, safe area를 확보한 하단 `지도/피드/MY` navigation
-- Tablet/Desktop `>= 768px`: 350px sidebar와 나머지 지도 영역
+- Mobile `< 768px`: 전체 지도, 상단 floating search, `이 지역 N곳` pill과 bottom sheet, compact restaurant preview, 상세 route/review sheet, safe area를 확보한 하단 `지도/피드/MY` navigation
+- Tablet/Desktop `>= 768px`: 현재 viewport 기록 목록을 포함한 350px sidebar와 나머지 지도 영역
 - Wide desktop `>= 1200px`: 390px sidebar와 확장된 지도 영역
 
 Desktop 지도는 350~390px sidebar와 남은 지도 공간을 사용합니다. Feed와 MY는 ultra-wide에서도 읽기 좋은 최대 폭을 유지합니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한하고, 작성 중 닫기에는 확인 절차를 둡니다.
@@ -196,7 +207,7 @@ private `review-images` bucket을 사용합니다.
 
 Production: [https://whomadethis-xi.vercel.app](https://whomadethis-xi.vercel.app)
 
-현재 Auth/session, NAVER 검색/Geocoding, 지도 marker, transaction 기반 방문 기록, 공유 detail, review/photo CRUD, Feed pagination, MY 통계/기록, Realtime, responsive app shell까지 구현되어 있습니다. 다음 항목은 MVP 이후의 선택 기능입니다.
+현재 Auth/session, NAVER 일반/명시적 지역 검색과 Geocoding, 현재 위치 초기 지도, viewport 기록 목록, 지도 marker, transaction 기반 방문 기록, 공유 detail, review/photo CRUD, Feed pagination, MY 통계/기록, Realtime, responsive app shell까지 구현되어 있습니다. 다음 항목은 MVP 이후의 선택 기능입니다.
 
 1. 사진 순서 재정렬
 2. Storage cleanup 보강을 위한 서버 재시도 작업
