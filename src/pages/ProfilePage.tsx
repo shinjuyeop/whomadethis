@@ -11,7 +11,6 @@ export function ProfilePage() {
   const dashboard = usePublicProfile(userId)
   const isCurrentUser = currentProfile.id === userId
   const stats = [
-    ['다녀온 곳', dashboard.stats.visitedRestaurantCount.toLocaleString()],
     ['작성한 후기', dashboard.stats.reviewCount.toLocaleString()],
     ['사진', dashboard.stats.photoCount.toLocaleString()],
     ['평균 별점', dashboard.stats.averageRating?.toFixed(1) ?? '—'],

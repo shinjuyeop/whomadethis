@@ -153,7 +153,7 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 ## Feed, MY, Realtime
 
 - Feed는 사진이 없는 기록을 compact text로, 사진이 있는 기록을 가로 사진 영역으로 표시하며 사진을 누르면 앱 내부 확대 viewer를 엽니다.
-- Feed와 음식점 후기의 작성자 이름은 공개 프로필로 연결되며, 프로필은 방문 장소/후기/사진/평균 별점과 작성한 후기를 표시합니다.
+- Feed와 음식점 후기의 작성자 이름은 공개 프로필로 연결되며, 프로필은 작성한 후기/사진/평균 별점과 후기 목록을 표시합니다.
 - 공개 프로필의 지도 action은 작성자가 후기를 남긴 restaurant만 marker로 전달하고 NAVER `fitBounds`로 해당 기록 범위를 맞춥니다.
 - MY는 다녀온 곳, 방문 기록, 사진, 평균 별점과 본인의 최근 기록을 한 화면에 표시하며 최근 기록을 누르면 바로 수정할 수 있습니다.
 - 인증 세션당 `RealtimeProvider` 채널 하나가 `restaurants`, `reviews`, `review_photos`, `profiles` 변경을 구독합니다.
