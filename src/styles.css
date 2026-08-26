@@ -2580,7 +2580,7 @@ code {
 
   .map-layout {
     display: grid;
-    grid-template-columns: 350px minmax(0, 1fr);
+    grid-template-columns: clamp(380px, 36vw, 420px) minmax(0, 1fr);
   }
 
   .map-sidebar {
@@ -2588,6 +2588,7 @@ code {
     z-index: 1;
     inset: auto;
     height: 100%;
+    min-width: 0;
     min-height: 0;
     max-height: none;
     overflow: hidden;
@@ -2663,6 +2664,35 @@ code {
     border-top: 1px solid var(--border);
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .map-sidebar > .restaurant-detail {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .map-sidebar > .restaurant-detail > *,
+  .map-sidebar .review-list-section,
+  .map-sidebar .review-list,
+  .map-sidebar .review-item,
+  .map-sidebar .review-item-heading {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .map-sidebar .restaurant-detail-header h2,
+  .map-sidebar .restaurant-detail-header address,
+  .map-sidebar .detail-notice,
+  .map-sidebar .review-item {
+    overflow-wrap: anywhere;
+  }
+
+  .map-sidebar .restaurant-detail-header .icon-button {
+    margin-right: 0;
   }
 
   .viewport-restaurant-section {
@@ -2768,7 +2798,7 @@ code {
   }
 
   .map-layout {
-    grid-template-columns: 390px minmax(0, 1fr);
+    grid-template-columns: 420px minmax(0, 1fr);
   }
 
   .map-sidebar {
