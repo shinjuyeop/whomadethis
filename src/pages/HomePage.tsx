@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import type { AuthenticatedOutletContext } from '../components/AuthenticatedApp'
 import { AppIcon } from '../components/AppIcon'
 import { NaverMap } from '../components/NaverMap'
@@ -33,9 +33,14 @@ import type {
 
 export function HomePage() {
   const { profile } = useOutletContext<AuthenticatedOutletContext>()
+  const location = useLocation()
+  const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width: 767px)')
+  const requestedRestaurantId = new URLSearchParams(location.search).get(
+    'restaurant',
+  )
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(
-    null,
+    requestedRestaurantId,
   )
   const [selectedSearchResult, setSelectedSearchResult] =
     useState<LocatedRestaurantSearchResult | null>(null)
@@ -74,6 +79,11 @@ export function HomePage() {
     setIsViewportSheetOpen(false)
     setNotice('')
   }, [])
+
+  useEffect(() => {
+    if (!requestedRestaurantId || status !== 'success') return
+    navigate('/', { replace: true })
+  }, [navigate, requestedRestaurantId, status])
 
   const handleMapClick = useCallback(() => {
     searchLocationRequestRef.current += 1
@@ -304,6 +314,9 @@ export function HomePage() {
             restaurants={restaurants}
             selectedRestaurant={selectedRestaurant}
             selectedSearchResult={selectedSearchResult}
+            skipInitialLocation={Boolean(
+              requestedRestaurantId || selectedRestaurantId,
+            )}
             onSelectRestaurant={handleMarkerSelect}
             onSearchResultPositionChange={handleSearchResultPositionChange}
             onMapClick={handleMapClick}
@@ -359,6 +372,7 @@ export function HomePage() {
           }
           review={workflow.editor.review}
           isManualLocation={workflow.editor.isManualLocation}
+          onAddressSelect={workflow.closeEditor}
           onSubmit={workflow.submit}
           onClose={workflow.closeEditor}
         />

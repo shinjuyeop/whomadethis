@@ -172,6 +172,16 @@ export function MyPage() {
             workflow.editor.target.roadAddress || workflow.editor.target.address
           }
           review={workflow.editor.review}
+          onAddressSelect={
+            workflow.editor.review
+              ? () => {
+                  const restaurantId = workflow.editor?.review?.restaurantId
+                  if (!restaurantId) return
+                  workflow.closeEditor()
+                  navigate(`/?restaurant=${encodeURIComponent(restaurantId)}`)
+                }
+              : undefined
+          }
           onSubmit={workflow.submit}
           onClose={workflow.closeEditor}
         />

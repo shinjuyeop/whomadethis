@@ -20,6 +20,7 @@ interface NaverMapProps {
   restaurants: Restaurant[]
   selectedRestaurant: Restaurant | null
   selectedSearchResult: LocatedRestaurantSearchResult | null
+  skipInitialLocation?: boolean
   onSelectRestaurant: (restaurant: Restaurant) => void
   onSearchResultPositionChange: (coordinate: MapCoordinate) => void
   onMapClick: () => void
@@ -64,6 +65,7 @@ export function NaverMap({
   restaurants,
   selectedRestaurant,
   selectedSearchResult,
+  skipInitialLocation = false,
   onSelectRestaurant,
   onSearchResultPositionChange,
   onMapClick,
@@ -219,7 +221,15 @@ export function NaverMap({
   }, [])
 
   useEffect(() => {
-    if (state !== 'ready' || initialLocationRequestedRef.current) return
+    if (
+      state !== 'ready' ||
+      initialLocationRequestedRef.current ||
+      skipInitialLocation ||
+      selectedRestaurant ||
+      selectedSearchResult
+    ) {
+      return
+    }
     initialLocationRequestedRef.current = true
     let active = true
     setLocationState('locating')
@@ -237,7 +247,13 @@ export function NaverMap({
     return () => {
       active = false
     }
-  }, [showLocation, state])
+  }, [
+    selectedRestaurant,
+    selectedSearchResult,
+    showLocation,
+    skipInitialLocation,
+    state,
+  ])
 
   useEffect(() => {
     if (

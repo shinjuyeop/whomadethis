@@ -22,6 +22,7 @@ interface ReviewEditorProps {
   restaurantAddress: string | null
   review?: Review
   isManualLocation?: boolean
+  onAddressSelect?: () => void
   onSubmit: (
     submission: ReviewEditorSubmission,
     onProgress: (progress: ImageUploadProgress) => void,
@@ -49,6 +50,7 @@ export function ReviewEditor({
   restaurantAddress,
   review,
   isManualLocation = false,
+  onAddressSelect,
   onSubmit,
   onClose,
 }: ReviewEditorProps) {
@@ -108,6 +110,17 @@ export function ReviewEditor({
       return
     }
     onClose()
+  }
+
+  function requestAddressSelect() {
+    if (!onAddressSelect || isSubmitting) return
+    if (
+      isDirty &&
+      !window.confirm('작성 중인 내용이 있습니다. 닫고 지도에서 위치를 볼까요?')
+    ) {
+      return
+    }
+    onAddressSelect()
   }
 
   useEffect(() => {
@@ -229,7 +242,22 @@ export function ReviewEditor({
             <h2 id="review-editor-title">
               {isManualLocation ? '이 위치에 후기 남기기' : restaurantName}
             </h2>
-            {restaurantAddress && <address>{restaurantAddress}</address>}
+            {restaurantAddress && (
+              <address>
+                {onAddressSelect ? (
+                  <button
+                    type="button"
+                    onClick={requestAddressSelect}
+                    disabled={isSubmitting}
+                    aria-label={`${restaurantAddress} 지도에서 보기`}
+                  >
+                    {restaurantAddress}
+                  </button>
+                ) : (
+                  restaurantAddress
+                )}
+              </address>
+            )}
           </div>
           <button
             type="button"

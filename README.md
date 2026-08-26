@@ -123,6 +123,8 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - `idle` 완료 시 현재 viewport 안의 등록 장소를 가까운 순으로 계산해 mobile bottom sheet와 desktop sidebar에 표시
 - NAVER 기본 zoom control은 표시하지 않고 desktop wheel/trackpad와 mobile pinch/touch의 native 지도 gesture를 유지
 - iOS에서도 document scroll을 잠가 상단 header와 하단 navigation을 viewport에 고정하고, Feed/MY/상세 같은 가운데 content만 독립적으로 scroll
+- Feed와 후기 작성 화면의 주소에서 해당 restaurant marker가 선택된 지도 위치로 바로 이동
+- desktop 지도 sidebar는 검색 영역을 유지하면서 restaurant 상세/후기 영역만 독립적으로 scroll
 - `ResizeObserver` 기반 map resize 처리
 
 공식 규격: [NAVER API HUB Local Search](https://api.ncloud-docs.com/docs/naver-api-hub-search-local), [NAVER Maps Geocoding](https://api.ncloud-docs.com/docs/application-maps-geocoding), [NAVER Maps Reverse Geocoding](https://api.ncloud-docs.com/docs/application-maps-reversegeocoding), [NAVER Maps JavaScript API](https://navermaps.github.io/maps.js.en/docs/tutorial-2-Getting-Started.html)

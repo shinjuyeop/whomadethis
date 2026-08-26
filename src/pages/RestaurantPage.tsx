@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useOutletContext, useParams } from 'react-router-dom'
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useParams,
+} from 'react-router-dom'
 import { AppIcon } from '../components/AppIcon'
 import type { AuthenticatedOutletContext } from '../components/AuthenticatedApp'
 import { RestaurantDetail } from '../components/RestaurantDetail'
@@ -16,6 +21,7 @@ type PageStatus = 'loading' | 'ready' | 'missing' | 'error'
 
 export function RestaurantPage() {
   const { restaurantId = '' } = useParams()
+  const navigate = useNavigate()
   const { profile } = useOutletContext<AuthenticatedOutletContext>()
   const { revision } = useRealtime()
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
@@ -111,6 +117,10 @@ export function RestaurantPage() {
           restaurantName={workflow.editor.target.title}
           restaurantAddress={workflow.editor.target.roadAddress || workflow.editor.target.address}
           review={workflow.editor.review}
+          onAddressSelect={() => {
+            workflow.closeEditor()
+            navigate(`/?restaurant=${encodeURIComponent(restaurantId)}`)
+          }}
           onSubmit={workflow.submit}
           onClose={workflow.closeEditor}
         />

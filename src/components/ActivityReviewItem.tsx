@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { formatRelativeTime, formatVisitedDate } from '../lib/date'
 import type { ActivityReview } from '../types/database'
@@ -17,6 +17,8 @@ export function ActivityReviewItem({
 }: ActivityReviewItemProps) {
   const visiblePhotos = review.photos.filter((photo) => photo.signedUrl)
   const isEditable = Boolean(onEdit)
+  const restaurantAddress =
+    review.restaurant.roadAddress || review.restaurant.address
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const viewerPhotos = visiblePhotos.map((photo, index) => ({
     url: photo.signedUrl ?? '',
@@ -25,7 +27,13 @@ export function ActivityReviewItem({
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (!onEdit || (event.key !== 'Enter' && event.key !== ' ')) return
+    if ((event.target as HTMLElement).closest('a, button')) return
     event.preventDefault()
+    onEdit()
+  }
+
+  function handleClick(event: MouseEvent<HTMLElement>) {
+    if (!onEdit || (event.target as HTMLElement).closest('a, button')) return
     onEdit()
   }
 
@@ -35,7 +43,7 @@ export function ActivityReviewItem({
       role={isEditable ? 'button' : undefined}
       tabIndex={isEditable ? 0 : undefined}
       aria-label={isEditable ? `${review.restaurant.name} 후기 수정` : undefined}
-      onClick={onEdit}
+      onClick={handleClick}
       onKeyDown={handleKeyDown}
     >
       <header className="activity-heading">
@@ -58,6 +66,13 @@ export function ActivityReviewItem({
           )}
           <span>★ {review.rating.toFixed(1)}</span>
         </div>
+        {restaurantAddress && (
+          <address className="activity-address">
+            <Link to={`/?restaurant=${encodeURIComponent(review.restaurant.id)}`}>
+              {restaurantAddress}
+            </Link>
+          </address>
+        )}
       </header>
 
       {visiblePhotos.length > 0 && (
