@@ -7,12 +7,14 @@ import { PhotoViewer } from './PhotoViewer'
 interface ActivityReviewItemProps {
   review: ActivityReview
   compact?: boolean
+  hideAuthor?: boolean
   onEdit?: () => void
 }
 
 export function ActivityReviewItem({
   review,
   compact = false,
+  hideAuthor = false,
   onEdit,
 }: ActivityReviewItemProps) {
   const visiblePhotos = review.photos.filter((photo) => photo.signedUrl)
@@ -47,9 +49,14 @@ export function ActivityReviewItem({
       onKeyDown={handleKeyDown}
     >
       <header className="activity-heading">
-        {!compact && (
+        {!compact && !hideAuthor && (
           <div className="activity-author-row">
-            <strong>{review.authorNickname}</strong>
+            <Link
+              className="activity-author-link"
+              to={`/profiles/${encodeURIComponent(review.userId)}`}
+            >
+              {review.authorNickname}
+            </Link>
             <span aria-hidden="true">·</span>
             <time dateTime={review.createdAt}>
               {formatRelativeTime(review.createdAt)} 기록

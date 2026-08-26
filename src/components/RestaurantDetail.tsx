@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { deleteReview, loadRestaurantReviews } from '../lib/reviews'
 import type { Restaurant, Review } from '../types/database'
 import { useRealtime } from '../hooks/useRealtime'
@@ -207,7 +208,12 @@ export function RestaurantDetail({
                 <li key={review.id} className="review-item">
                   <div className="review-item-heading">
                     <div>
-                      <strong>{review.authorNickname}</strong>
+                      <Link
+                        className="review-author-link"
+                        to={`/profiles/${encodeURIComponent(review.userId)}`}
+                      >
+                        {review.authorNickname}
+                      </Link>
                       <span>★ {review.rating.toFixed(1)}</span>
                     </div>
                     {isOwner && (

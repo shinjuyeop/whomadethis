@@ -20,6 +20,7 @@ interface NaverMapProps {
   restaurants: Restaurant[]
   selectedRestaurant: Restaurant | null
   selectedSearchResult: LocatedRestaurantSearchResult | null
+  focusRestaurants?: Restaurant[] | null
   skipInitialLocation?: boolean
   onSelectRestaurant: (restaurant: Restaurant) => void
   onSearchResultPositionChange: (coordinate: MapCoordinate) => void
@@ -65,6 +66,7 @@ export function NaverMap({
   restaurants,
   selectedRestaurant,
   selectedSearchResult,
+  focusRestaurants = null,
   skipInitialLocation = false,
   onSelectRestaurant,
   onSearchResultPositionChange,
@@ -254,6 +256,39 @@ export function NaverMap({
     skipInitialLocation,
     state,
   ])
+
+  useEffect(() => {
+    if (
+      state !== 'ready' ||
+      !map ||
+      !window.naver?.maps ||
+      !focusRestaurants ||
+      focusRestaurants.length === 0
+    ) {
+      return
+    }
+
+    const { maps } = window.naver
+    if (focusRestaurants.length === 1) {
+      map.setCenter(
+        new maps.LatLng(
+          focusRestaurants[0].latitude,
+          focusRestaurants[0].longitude,
+        ),
+      )
+      map.setZoom(16)
+      return
+    }
+
+    const latitudes = focusRestaurants.map((restaurant) => restaurant.latitude)
+    const longitudes = focusRestaurants.map((restaurant) => restaurant.longitude)
+    map.fitBounds(
+      new maps.LatLngBounds(
+        new maps.LatLng(Math.min(...latitudes), Math.min(...longitudes)),
+        new maps.LatLng(Math.max(...latitudes), Math.max(...longitudes)),
+      ),
+    )
+  }, [focusRestaurants, map, state])
 
   useEffect(() => {
     if (

@@ -625,6 +625,57 @@ a {
   box-shadow: 0 3px 10px rgb(32 37 34 / 8%);
 }
 
+.map-author-filter {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 11px 12px;
+  border: 1px solid rgb(22 128 82 / 18%);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-floating);
+  pointer-events: auto;
+}
+
+.map-author-filter > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.map-author-filter span,
+.map-author-filter small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.map-author-filter strong {
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-author-filter > a {
+  min-height: 36px;
+  flex: none;
+  align-content: center;
+  padding: 0 4px;
+  color: var(--accent-dark);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.map-author-filter--error,
+.map-author-filter--missing {
+  border-color: rgb(173 62 52 / 20%);
+}
+
 .home-notice button,
 .detail-notice button {
   flex: none;
@@ -839,11 +890,22 @@ a {
   gap: 7px;
 }
 
-.review-item-heading strong {
+.review-item-heading strong,
+.review-author-link {
+  min-width: 0;
   overflow: hidden;
+  color: var(--text);
   font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.review-author-link:hover {
+  color: var(--accent-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .review-item-heading span {
@@ -2147,11 +2209,118 @@ code {
 
 .content-column,
 .my-column,
+.profile-column,
 .restaurant-page-column {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
   padding: 28px 16px 56px;
+}
+
+.public-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.public-profile-header > img,
+.public-profile-avatar {
+  width: 68px;
+  height: 68px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.public-profile-header > img {
+  object-fit: cover;
+}
+
+.public-profile-avatar {
+  display: grid;
+  place-content: center;
+  background: rgb(22 128 82 / 10%);
+  color: var(--accent-dark);
+  font-size: 1.45rem;
+  font-weight: 750;
+}
+
+.public-profile-header > div {
+  min-width: 0;
+}
+
+.public-profile-header p {
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.public-profile-header h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.55rem;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-profile-header div > span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.profile-map-link {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 24px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.profile-map-link:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.profile-map-link svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.public-profile-stats {
+  margin-top: 24px;
+}
+
+.public-profile-history {
+  margin-top: 30px;
+}
+
+.profile-manage-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .page-heading > p,
@@ -2189,13 +2358,21 @@ code {
   font-size: 0.8rem;
 }
 
-.activity-author-row strong {
+.activity-author-row strong,
+.activity-author-link {
   overflow: hidden;
   color: var(--text);
   font-size: 0.86rem;
   font-weight: 600;
+  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.activity-author-link:hover {
+  color: var(--accent-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .activity-restaurant-row {
@@ -2650,6 +2827,15 @@ code {
     box-shadow: none;
   }
 
+  .map-author-filter {
+    padding-right: 0;
+    padding-left: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .restaurant-detail {
     position: relative;
     z-index: auto;
@@ -2779,6 +2965,7 @@ code {
 
   .content-column,
   .my-column,
+  .profile-column,
   .restaurant-page-column {
     padding: 48px 24px 72px;
   }

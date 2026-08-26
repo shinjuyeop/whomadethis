@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate, useOutletContext } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useOutletContext,
+} from 'react-router-dom'
 import type { AuthenticatedOutletContext } from '../components/AuthenticatedApp'
 import { AppIcon } from '../components/AppIcon'
 import { NaverMap } from '../components/NaverMap'
@@ -12,6 +17,7 @@ import {
   ViewportRestaurantSheet,
 } from '../components/ViewportRestaurantList'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useAuthorMapFilter } from '../hooks/useAuthorMapFilter'
 import {
   restaurantToSearchResult,
   useReviewWorkflow,
@@ -39,6 +45,7 @@ export function HomePage() {
   const requestedRestaurantId = new URLSearchParams(location.search).get(
     'restaurant',
   )
+  const requestedAuthorId = new URLSearchParams(location.search).get('author')
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(
     requestedRestaurantId,
   )
@@ -53,6 +60,13 @@ export function HomePage() {
   const [isViewportSheetOpen, setIsViewportSheetOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const { restaurants, status, errorMessage, refresh } = useRestaurants()
+  const authorFilter = useAuthorMapFilter(requestedAuthorId)
+  const displayedRestaurants = useMemo(() => {
+    if (!requestedAuthorId) return restaurants
+    if (authorFilter.status !== 'ready') return []
+    const restaurantIds = new Set(authorFilter.restaurantIds)
+    return restaurants.filter((restaurant) => restaurantIds.has(restaurant.id))
+  }, [authorFilter.restaurantIds, authorFilter.status, requestedAuthorId, restaurants])
   const selectedRestaurant =
     restaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ??
     null
@@ -250,6 +264,30 @@ export function HomePage() {
             onResultsVisibilityChange={handleSearchResultsVisibilityChange}
           />
 
+          {requestedAuthorId && (
+            <div
+              className={`map-author-filter map-author-filter--${authorFilter.status}`}
+              role="status"
+            >
+              <div>
+                <span>작성자 지도</span>
+                <strong>
+                  {authorFilter.status === 'loading'
+                    ? '기록을 불러오는 중…'
+                    : authorFilter.profile
+                      ? `${authorFilter.profile.nickname}님의 기록만 표시`
+                      : authorFilter.status === 'missing'
+                        ? '프로필을 찾을 수 없어요'
+                        : '기록을 불러오지 못했어요'}
+                </strong>
+                {authorFilter.status === 'ready' && (
+                  <small>{displayedRestaurants.length}곳</small>
+                )}
+              </div>
+              <Link to="/">전체 지도</Link>
+            </div>
+          )}
+
           {notice && (!selectedRestaurant || isMobile) && (
             <div className="home-notice" role="status">
               <span>{notice}</span>
@@ -272,11 +310,17 @@ export function HomePage() {
                 </button>
               </div>
             )}
-            {status === 'success' && restaurants.length === 0 && (
+            {status === 'success' && !requestedAuthorId && restaurants.length === 0 && (
               <p>첫 기록을 남기면 지도에 장소가 나타나요.</p>
             )}
-            {status === 'success' && restaurants.length > 0 && (
+            {status === 'success' && !requestedAuthorId && restaurants.length > 0 && (
               <p>친구들이 남긴 장소 {restaurants.length}곳</p>
+            )}
+            {status === 'success' && requestedAuthorId && authorFilter.status === 'ready' && (
+              <p>
+                {authorFilter.profile?.nickname}님이 기록한 장소{' '}
+                {displayedRestaurants.length}곳
+              </p>
             )}
           </div>
 
@@ -311,11 +355,16 @@ export function HomePage() {
 
         <section className="map-canvas" aria-label="친구들의 맛집 지도">
           <NaverMap
-            restaurants={restaurants}
+            restaurants={displayedRestaurants}
             selectedRestaurant={selectedRestaurant}
             selectedSearchResult={selectedSearchResult}
+            focusRestaurants={
+              requestedAuthorId && authorFilter.status === 'ready'
+                ? displayedRestaurants
+                : null
+            }
             skipInitialLocation={Boolean(
-              requestedRestaurantId || selectedRestaurantId,
+              requestedRestaurantId || requestedAuthorId || selectedRestaurantId,
             )}
             onSelectRestaurant={handleMarkerSelect}
             onSearchResultPositionChange={handleSearchResultPositionChange}

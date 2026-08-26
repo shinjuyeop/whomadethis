@@ -23,7 +23,7 @@ src/
   components/              # app shell, map/search, detail/review, Realtime UI
   hooks/                   # auth, Feed/MY data, Realtime, marker lifecycle
   lib/                     # NAVER Maps, Supabase, auth/profile/data calls
-  pages/                   # login, signup, map, Feed, restaurant detail, MY
+  pages/                   # login, signup, map, Feed, public profile, restaurant detail, MY
   types/                   # app-facing API and SDK types
 supabase/
   config.toml              # local Supabase configuration
@@ -47,13 +47,13 @@ supabase/
 ```text
 회원가입/로그인 → nickname profile 확인 → 지도
               → NAVER 음식점 검색 → 후기 작성/수정 → marker/detail
-              → Feed에서 친구의 최신 기록 확인
+              → Feed/후기 작성자 → 공개 프로필/작성 기록 → 작성자 지도 filter
               → MY에서 내 통계와 방문 기록 확인
 ```
 
 현재 MVP에서는 이메일 확인 없이 nickname, 이메일, 비밀번호, 비밀번호 확인만 입력하면 가입과 동시에 로그인됩니다. 이메일 확인이 필요해지면 Supabase Auth 설정과 가입 완료 UX를 함께 다시 활성화합니다. 사용자에게 profile이 없을 때만 nickname 설정 화면이 나타나며, MY에서 nickname 변경과 로그아웃을 할 수 있습니다. Session 확인이 끝나기 전에는 지도 route를 렌더링하지 않습니다.
 
-`vercel.json`은 `/login`, `/signup`, `/feed`, `/my`, `/restaurants/:id` 직접 접근을 SPA entry로 rewrite합니다. `/api/naver-search`와 `/api/naver-geocode` function route는 rewrite 대상에 포함하지 않습니다.
+`vercel.json`은 `/login`, `/signup`, `/feed`, `/my`, `/restaurants/:id`, `/profiles/:id` 직접 접근을 SPA entry로 rewrite합니다. `/api/naver-search`와 `/api/naver-geocode` function route는 rewrite 대상에 포함하지 않습니다.
 
 ## Routes
 
@@ -62,6 +62,7 @@ supabase/
 | `/` | NAVER Map, 음식점 검색, marker와 restaurant preview/sidebar |
 | `/feed` | 모든 인증 사용자의 최근 방문 기록, 20개 단위 더 보기 |
 | `/restaurants/:id` | 음식점 정보, 평균/리뷰 수, 사진과 방문 기록 CRUD |
+| `/profiles/:id` | 작성자의 공개 통계, 작성 후기와 작성자별 지도 filter 진입 |
 | `/my` | 닉네임, 내 통계, 클릭해서 수정하는 내 최근 후기, 로그아웃 |
 | `/login`, `/signup` | 이메일/비밀번호 Auth와 nickname 가입 |
 
@@ -124,6 +125,7 @@ NAVER Maps credential과 NAVER API HUB credential은 별개입니다. 지도 SDK
 - NAVER 기본 zoom control은 표시하지 않고 desktop wheel/trackpad와 mobile pinch/touch의 native 지도 gesture를 유지
 - iOS에서도 document scroll을 잠가 상단 header와 하단 navigation을 viewport에 고정하고, Feed/MY/상세 같은 가운데 content만 독립적으로 scroll
 - Feed와 후기 작성 화면의 주소에서 해당 restaurant marker가 선택된 지도 위치로 바로 이동
+- Feed와 음식점 후기의 작성자 이름에서 공개 프로필로 이동하고, 작성자의 통계/후기와 해당 작성자 restaurant만 남기는 지도 filter 제공
 - desktop 지도 sidebar는 검색 영역을 유지하면서 restaurant 상세/후기 영역만 독립적으로 scroll
 - desktop 지도 sidebar 폭을 380~420px로 확보하고 긴 후기/주소도 내부 줄바꿈하여 가로 scroll 방지
 - `ResizeObserver` 기반 map resize 처리
@@ -146,11 +148,13 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 
 검색 결과 선택 자체는 DB를 변경하지 않습니다. 사용자가 후기를 제출할 때 `create_visit_review` security-invoker RPC가 기존 `find_or_create_restaurant`를 호출하고 review를 같은 transaction에서 생성하거나 갱신합니다. `(source, source_key)`와 `(user_id, restaurant_id)` unique constraint를 함께 사용하므로 음식점은 중복 생성되지 않고, 같은 사용자가 같은 장소를 다시 저장하면 기존 후기 하나를 덮어씁니다. Service role은 사용하지 않습니다.
 
-`list_restaurants_with_review_stats`는 restaurant 목록, 평균 평점, 리뷰 수, 대표 사진 경로를 한 번에 반환해 marker별 N+1 조회를 피합니다. `list_restaurant_reviews`는 작성자 nickname과 사진 metadata를 함께 반환합니다. `list_recent_reviews`와 `list_my_reviews`는 profile, restaurant, photo를 관계 조회한 뒤 `created_at DESC`로 20개씩 반환합니다. `get_my_review_stats`는 distinct 음식점, review, photo, 평균 별점을 정확히 집계합니다. 평균 평점은 리뷰가 없을 때 `null`로 유지합니다.
+`list_restaurants_with_review_stats`는 restaurant 목록, 평균 평점, 리뷰 수, 대표 사진 경로를 한 번에 반환해 marker별 N+1 조회를 피합니다. `list_restaurant_reviews`는 작성자 nickname과 사진 metadata를 함께 반환합니다. `list_recent_reviews`, `list_my_reviews`, `list_user_reviews`는 profile, restaurant, photo를 관계 조회한 뒤 `created_at DESC`로 20개씩 반환합니다. `get_my_review_stats`와 `get_user_review_stats`는 distinct 음식점, review, photo, 평균 별점을 정확히 집계하고, `list_user_restaurant_ids`는 작성자 지도 filter의 marker 대상을 반환합니다. 평균 평점은 리뷰가 없을 때 `null`로 유지합니다.
 
 ## Feed, MY, Realtime
 
 - Feed는 사진이 없는 기록을 compact text로, 사진이 있는 기록을 가로 사진 영역으로 표시하며 사진을 누르면 앱 내부 확대 viewer를 엽니다.
+- Feed와 음식점 후기의 작성자 이름은 공개 프로필로 연결되며, 프로필은 방문 장소/후기/사진/평균 별점과 작성한 후기를 표시합니다.
+- 공개 프로필의 지도 action은 작성자가 후기를 남긴 restaurant만 marker로 전달하고 NAVER `fitBounds`로 해당 기록 범위를 맞춥니다.
 - MY는 다녀온 곳, 방문 기록, 사진, 평균 별점과 본인의 최근 기록을 한 화면에 표시하며 최근 기록을 누르면 바로 수정할 수 있습니다.
 - 인증 세션당 `RealtimeProvider` 채널 하나가 `restaurants`, `reviews`, `review_photos`, `profiles` 변경을 구독합니다.
 - 짧은 시간에 연속된 이벤트를 하나로 묶고, 화면 데이터는 ID 기준 페이지 결과로 교체/병합합니다.
@@ -173,10 +177,10 @@ Restaurant 삭제는 review가 있을 때 `restrict`하여 실수로 review가 �
 ## Responsive application shell
 
 - Mobile `< 768px`: 전체 지도, 상단 floating search, `이 지역 N곳` pill과 bottom sheet, compact restaurant preview, 상세 route/review sheet, safe area를 확보한 하단 `지도/피드/MY` navigation
-- Tablet/Desktop `>= 768px`: 현재 viewport 기록 목록을 포함한 350px sidebar와 나머지 지도 영역
-- Wide desktop `>= 1200px`: 390px sidebar와 확장된 지도 영역
+- Tablet/Desktop `>= 768px`: 현재 viewport 기록 목록을 포함한 380~420px sidebar와 나머지 지도 영역
+- Wide desktop `>= 1200px`: 420px sidebar와 확장된 지도 영역
 
-Desktop 지도는 350~390px sidebar와 남은 지도 공간을 사용합니다. Feed와 MY는 ultra-wide에서도 읽기 좋은 최대 폭을 유지합니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한하고, 작성 중 닫기에는 확인 절차를 둡니다.
+Desktop 지도는 380~420px sidebar와 남은 지도 공간을 사용합니다. Feed, 공개 프로필과 MY는 ultra-wide에서도 읽기 좋은 최대 폭을 유지합니다. Search 결과는 모바일 지도 일부만 덮는 scroll 영역으로 제한하고, 작성 중 닫기에는 확인 절차를 둡니다.
 
 ## SQL migration workflow
 

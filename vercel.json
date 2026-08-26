@@ -5,6 +5,7 @@
     { "source": "/signup", "destination": "/index.html" },
     { "source": "/feed", "destination": "/index.html" },
     { "source": "/my", "destination": "/index.html" },
-    { "source": "/restaurants/:path*", "destination": "/index.html" }
+    { "source": "/restaurants/:path*", "destination": "/index.html" },
+    { "source": "/profiles/:path*", "destination": "/index.html" }
   ]
 }

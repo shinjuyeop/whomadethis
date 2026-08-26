@@ -19,6 +19,7 @@ interface NaverLatLngBounds {
 
 interface NaverMapInstance {
   destroy?: () => void
+  fitBounds(bounds: NaverLatLngBounds): void
   getBounds(): NaverLatLngBounds
   getCenter(): NaverLatLng
   setCenter(center: NaverLatLng): void
@@ -67,6 +68,7 @@ interface NaverMapsNamespace {
   Map: new (element: HTMLElement, options: NaverMapOptions) => NaverMapInstance
   Marker: new (options: NaverMarkerOptions) => NaverMarkerInstance
   LatLng: new (latitude: number, longitude: number) => NaverLatLng
+  LatLngBounds: new (southWest: NaverLatLng, northEast: NaverLatLng) => NaverLatLngBounds
   Point: new (x: number, y: number) => NaverPoint
   Event: NaverMapsEventNamespace
 }

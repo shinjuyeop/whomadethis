@@ -7,6 +7,7 @@ import { MyPage } from './pages/MyPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { SignupPage } from './pages/SignupPage'
 import { RestaurantPage } from './pages/RestaurantPage'
+import { ProfilePage } from './pages/ProfilePage'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/feed" element={<FeedPage />} />
         <Route path="/restaurants/:restaurantId" element={<RestaurantPage />} />
+        <Route path="/profiles/:userId" element={<ProfilePage />} />
         <Route path="/my" element={<MyPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
